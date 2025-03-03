@@ -50,10 +50,9 @@ class StageFiller:
         table = pd.DataFrame(columns=["file_path", "success", "headers"])
         for i, file_path in enumerate(all_files):
             table.loc[i] = check_file(file_path=file_path, required_headers=required_headers)
-        # print("BAD DATA:")
         failed_files = table[table["success"] == False]["file_path"]
         if failed_files.empty:
-            print("None failed")
+            print("All files is OK")
         else:
             print(f"failed:{failed_files}")
 
@@ -65,11 +64,9 @@ class StageFiller:
             headers=required_headers
         )
         
-        print(table.shape)
         for index, row in table.iterrows():
             if row["success"] == True:
-                # print(row["file_path"])
-                print(index, end = " ")
+                print(f"{key} - {index+1}/{table.shape[0]}")
                 self.db_handler.copy_data(
                     table_name=TEMP_TABLE_NAME,
                     schema_name=STAGE_SCHEMA_NAME,
@@ -77,8 +74,8 @@ class StageFiller:
                     headers=required_headers,
                     has_headers=row["headers"]
                 )
-        print()
 
+        print("Moving data from temp_table")
         self.db_handler.move_from_temp(temp_table_name=TEMP_TABLE_NAME,
                                        main_table_info=DATA_STRUCTURE[key],
                                        schema_name=STAGE_SCHEMA_NAME)
