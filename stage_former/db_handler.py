@@ -63,6 +63,42 @@ class DBHandler:
         query = f"create table {schema_name}.{table_name}(\n{",\n".join([f"{c} text" for c in headers])});"
         self.execute_query(query=query)
 
+    def delete_all_table_data(self, table_name, schema_name):
+        try:
+            self.execute_query(f"TRUNCATE TABLE {schema_name}.{table_name} CASCADE;")
+        except Exception as e:
+            print(f"Ошибка: {e}")
+            raise e
+
+    def move_from_temp(self, temp_table_name, main_table_info: dict, schema_name):
+        table_name = main_table_info["table_name"]
+        self.delete_all_table_data(table_name, schema_name)
+        headers = list(main_table_info["headers"].keys())
+        print(headers)
+        type_mapping = [f"{h}::{main_table_info["headers"][h].get("type", "text")}" for h in headers]
+        print(type_mapping)
+        self.execute_query(f"""
+                            insert into {schema_name}.{table_name} ({", ".join(headers)})
+                            select {", ".join(type_mapping)}
+                            from {schema_name}.{temp_table_name}
+                           """)
+
+    def create_scheme(self, schema_name):
+        try:
+            self.execute_query(f"CREATE SCHEMA IF NOT EXISTS {schema_name};")
+            print(f"{schema_name} created")
+        except Exception as e:
+            print(f"Ошибка: {e}")
+            raise e
+
+    def drop_scheme(self, schema_name):
+        try:
+            self.execute_query(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE;")
+            print(f"{schema_name} droped")
+        except Exception as e:
+            print(f"Ошибка: {e}")
+            raise e
+
         
 
     def close(self):
@@ -78,4 +114,4 @@ class DBHandler:
 
 if __name__ == "__main__":
     dh = DBHandler()
-    print(dh.fetch_all(f"select* from test_tables.temp_table"))
+    print(dh.fetch_all(f"select* from test_tables2.product_type"))
