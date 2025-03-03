@@ -1,8 +1,13 @@
 import psycopg2
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).parent.parent))
+from config import DB_CONFIG
 
 class DBHandler:
-    def __init__(self, db_config):
-        self.db_config = db_config
+    def __init__(self):
+        self.db_config = DB_CONFIG
         self.connection = None
         self.cursor = None
         self.connect()
@@ -36,7 +41,6 @@ class DBHandler:
                 file_path,
                 headers,
                 has_headers):
-        print("copy_data...")
         if self.cursor:
             try:
                 with open(file_path, 'r') as f:
@@ -47,15 +51,19 @@ class DBHandler:
                         """,
                         file=f
                     )
-                    print("data copied...")
                     self.connection.commit()
             except Exception as e:
                 raise e
-            
-        print(self.fetch_all(f"select* from {schema_name}.{table_name}"))
-        print(f"{schema_name}.{table_name}")
        
-# column1, column2, column3
+    def create_temp_table(self,
+                          table_name,
+                          schema_name,
+                          headers: list):
+        self.execute_query(f"DROP TABLE IF EXISTS {schema_name}.{table_name};")
+        query = f"create table {schema_name}.{table_name}(\n{",\n".join([f"{c} text" for c in headers])});"
+        self.execute_query(query=query)
+
+        
 
     def close(self):
         if self.cursor:
@@ -69,12 +77,5 @@ class DBHandler:
     
 
 if __name__ == "__main__":
-
-    import sys
-    from pathlib import Path
-    sys.path.append(str(Path(__file__).parent.parent))
-    import config
-    print(config.db_config)
-
-    dh = DBHandler(config.db_config)
+    dh = DBHandler()
     print(dh.fetch_all(f"select* from test_tables.temp_table"))
