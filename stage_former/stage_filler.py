@@ -3,12 +3,13 @@ import glob
 import sys
 from pathlib import Path
 import pandas as pd
+import time
 
 from data_structure import DATA_STRUCTURE
 from db_handler import DBHandler
 
 sys.path.append(str(Path(__file__).parent.parent))
-from config import DB_CONFIG, ARCHIVE_PATH, STAGE_SCHEMA_NAME
+from config import ARCHIVE_PATH, STAGE_SCHEMA_NAME
 
 
 TEMP_TABLE_NAME = "temp_table"
@@ -43,8 +44,6 @@ class StageFiller:
     def fill_table(self, key):
         dir_name = DATA_STRUCTURE[key]["dir_name"]
         required_headers = list(DATA_STRUCTURE[key]["headers"].keys())
-        # print(f"{dir_name}:")
-        # print(required_headers)
         full_path = os.path.join(ARCHIVE_PATH, dir_name)
         all_files = get_all_files_in_dirrectory(full_path)
         table = pd.DataFrame(columns=["file_path", "success", "headers"])
@@ -52,9 +51,9 @@ class StageFiller:
             table.loc[i] = check_file(file_path=file_path, required_headers=required_headers)
         failed_files = table[table["success"] == False]["file_path"]
         if failed_files.empty:
-            print("All files is OK")
+            print("All files ok")
         else:
-            print(f"failed:{failed_files}")
+            print(f"Failed: {failed_files}")
 
         # обработка, если все файлы плохие...
 
@@ -82,5 +81,8 @@ class StageFiller:
 
 
 if __name__ == "__main__":
+    start_time = time.perf_counter()
     sf = StageFiller()
     sf.fill_all()
+    elapsed_time = time.perf_counter() - start_time
+    print(f"Время, ушедшее на заполнение таюлиц: {elapsed_time:.2f} секунд")

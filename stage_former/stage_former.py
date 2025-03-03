@@ -6,7 +6,7 @@ from tables_and_triggers import TABLES, FOREIGN_KEYS, TRIGGERS
 from db_handler import DBHandler
 
 sys.path.append(str(Path(__file__).parent.parent))
-from config import DB_CONFIG, ARCHIVE_PATH, STAGE_SCHEMA_NAME
+from config import STAGE_SCHEMA_NAME
 
 class StageFormer:
     def __init__(self):
