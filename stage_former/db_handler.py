@@ -74,9 +74,20 @@ class DBHandler:
         table_name = main_table_info["table_name"]
         self.delete_all_table_data(table_name, schema_name)
         headers = list(main_table_info["headers"].keys())
-        print(headers)
-        type_mapping = [f"{h}::{main_table_info["headers"][h].get("type", "text")}" for h in headers]
-        print(type_mapping)
+        # print(headers)
+        type_mapping = []
+        for header in headers:
+            column_type = main_table_info["headers"][header].get("type", "text")
+            # if column_type.lower() == "timestamp":
+            #     type_mapping.append(f"CASE WHEN {header}::text = '' THEN NULL ELSE to_timestamp({header}::text, 'YYYY-MM-DDTHH24:MI:SS.US TZ') END")
+            # else:
+            #     type_mapping.append(f"COALESCE({header}::{column_type}, NULL)")
+            type_mapping.append(f"CASE WHEN {header}::text = '' THEN NULL ELSE {header}::{column_type} END")
+
+# f"NULLIF({header}::text, '')"
+# 
+
+        # print(type_mapping)
         self.execute_query(f"""
                             insert into {schema_name}.{table_name} ({", ".join(headers)})
                             select {", ".join(type_mapping)}

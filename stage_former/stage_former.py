@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 
 
-from tables_and_triggers import TABLES, FOREIGN_KEYS
+from tables_and_triggers import TABLES, FOREIGN_KEYS, TRIGGERS
 from db_handler import DBHandler
 
 sys.path.append(str(Path(__file__).parent.parent))
@@ -20,6 +20,10 @@ class StageFormer:
         for fk in FOREIGN_KEYS:
             self.db_handler.execute_query(fk)
 
+    def create_triggers(self):
+        for tg in TRIGGERS:
+            self.db_handler.execute_query(tg)
+
 
 if __name__ == "__main__":
     sf = StageFormer()
@@ -27,3 +31,4 @@ if __name__ == "__main__":
     sf.db_handler.create_scheme(schema_name=STAGE_SCHEMA_NAME)
     sf.create_tables()
     sf.create_foreign_keys()
+    sf.create_triggers()

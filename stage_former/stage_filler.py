@@ -43,19 +43,19 @@ class StageFiller:
     def fill_table(self, key):
         dir_name = DATA_STRUCTURE[key]["dir_name"]
         required_headers = list(DATA_STRUCTURE[key]["headers"].keys())
-        print(f"{dir_name}:")
-        print(required_headers)
+        # print(f"{dir_name}:")
+        # print(required_headers)
         full_path = os.path.join(ARCHIVE_PATH, dir_name)
         all_files = get_all_files_in_dirrectory(full_path)
         table = pd.DataFrame(columns=["file_path", "success", "headers"])
         for i, file_path in enumerate(all_files):
             table.loc[i] = check_file(file_path=file_path, required_headers=required_headers)
-        print("BAD DATA:")
+        # print("BAD DATA:")
         failed_files = table[table["success"] == False]["file_path"]
         if failed_files.empty:
-            print("None")
+            print("None failed")
         else:
-            print(failed_files)
+            print(f"failed:{failed_files}")
 
         # обработка, если все файлы плохие...
 
@@ -65,9 +65,11 @@ class StageFiller:
             headers=required_headers
         )
         
+        print(table.shape)
         for index, row in table.iterrows():
             if row["success"] == True:
-                print(row["file_path"])
+                # print(row["file_path"])
+                print(index, end = " ")
                 self.db_handler.copy_data(
                     table_name=TEMP_TABLE_NAME,
                     schema_name=STAGE_SCHEMA_NAME,
@@ -75,6 +77,7 @@ class StageFiller:
                     headers=required_headers,
                     has_headers=row["headers"]
                 )
+        print()
 
         self.db_handler.move_from_temp(temp_table_name=TEMP_TABLE_NAME,
                                        main_table_info=DATA_STRUCTURE[key],

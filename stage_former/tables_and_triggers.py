@@ -94,7 +94,7 @@ create table {STAGE_SCHEMA_NAME}.CRM_CUSTOMER
 (
     crm_customer_id int primary key,
     customer_id int,
-    birth_dt date,
+    birth_dt timestamp,
     phone_num text,
     email text,
     first_nm text,
@@ -145,6 +145,14 @@ create table {STAGE_SCHEMA_NAME}.CAB_CUSTOMER
     delete_dttm timestamp
 );""",
 
+f"""
+CREATE TABLE {STAGE_SCHEMA_NAME}.error_log (
+    id SERIAL PRIMARY KEY,
+    operation_type VARCHAR(50) NOT NULL,
+    error_message TEXT NOT NULL,
+    row_data JSONB NOT NULL
+);
+"""
 ]
 
 FOREIGN_KEYS = [
@@ -221,4 +229,38 @@ add foreign key (transaction_type_cd)
 references {STAGE_SCHEMA_NAME}.CRM_TRANSACTION_TYPE(transaction_type_cd)
 """,
 
+]
+
+
+TRIGGERS = [
+    
+    f"""
+    CREATE OR REPLACE FUNCTION log_duplicate_key()
+    RETURNS TRIGGER AS $$
+    BEGIN
+        -- Проверка уникальности
+        IF EXISTS (SELECT 1 FROM {STAGE_SCHEMA_NAME}.crm_transaction WHERE transaction_id = NEW.transaction_id) THEN
+            -- Запись ошибки в error_log
+            INSERT INTO {STAGE_SCHEMA_NAME}.error_log (operation_type, error_message, row_data)
+            VALUES (
+                'INSERT',
+                format('Duplicate transaction_id: %s', row_to_json(NEW)),
+                row_to_json(NEW)
+            );
+            -- Пропуск записи
+            RETURN NULL;
+        END IF;
+
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+    """,
+    
+    f"""
+    -- Привязка триггера
+    CREATE TRIGGER log_duplicate_key_trigger
+    BEFORE INSERT ON {STAGE_SCHEMA_NAME}.crm_transaction
+    FOR EACH ROW
+    EXECUTE FUNCTION log_duplicate_key();
+    """
 ]
