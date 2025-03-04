@@ -150,9 +150,11 @@ CREATE TABLE {STAGE_SCHEMA_NAME}.error_log (
     id SERIAL PRIMARY KEY,
     operation_type VARCHAR(50) NOT NULL,
     error_message TEXT NOT NULL,
-    row_data JSONB NOT NULL
+    row_data JSONB NOT NULL,
+    create_dttm TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-"""
+""",
+
 ]
 
 FOREIGN_KEYS = [
