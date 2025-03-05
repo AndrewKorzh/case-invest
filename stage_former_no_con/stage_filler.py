@@ -5,7 +5,8 @@ from pathlib import Path
 import pandas as pd
 import time
 
-from tables_info import TABLES_INFO
+from tables_info import TABLES_INFO, ERROR_LOG_TABLE_NAME
+from inspections_register import INSPECTIONS_REGISTER
 from db_handler import DBHandler
 
 sys.path.append(str(Path(__file__).parent.parent))
@@ -67,12 +68,42 @@ class StageFiller:
                     has_headers=row["headers"]
                 )
 
+    def process_all(self):
+        for table_inspections in INSPECTIONS_REGISTER:
+            print(f"process {table_inspections["table_name"]}...")
+            self.process_table(table_inspections)
+
+    def process_table(self, table_inspections:dict):
+        table_name = table_inspections["table_name"]
+        primary_key = table_inspections["primary_key"]
+        inspections = table_inspections["inspections"]
+
+        for i in inspections:
+            inspection_type = i["type"]
+            if inspection_type == "UNIQUE":
+                self.db_handler.process_unique(
+                    schema_name=STAGE_SCHEMA_NAME,
+                    table_name=table_name,
+                    table_primary_key=primary_key,
+                    column_name=i["collumn"],
+                    error_table=ERROR_LOG_TABLE_NAME
+                )
+
+        print(f"{table_name} processed")
+
+
 
 
 if __name__ == "__main__":
-    start_time = time.perf_counter()
     sf = StageFiller()
+
+    start_time = time.perf_counter()
     sf.fill_all()
     elapsed_time = time.perf_counter() - start_time
     print(f"Время, ушедшее на заполнение таюлиц: {elapsed_time:.2f} секунд")
+
+    # Тестовое заполненеие кривыми данными
+    # sf.fill_table(table_info=TABLES_INFO[0]) # это product_type
+
     # Теперь нужна обработка
+    sf.process_all()

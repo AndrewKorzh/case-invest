@@ -1,3 +1,8 @@
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+from config import STAGE_SCHEMA_NAME
+
 TABLES_INFO = [
     {
     "dir_name":"product_type",
@@ -123,3 +128,24 @@ TABLES_INFO = [
                 "delete_dttm":{"type":"timestamp"}}
     }
 ]
+
+ERROR_LOG_TABLE_NAME = "error_log"
+
+SERVICE_TABLES = [
+    {
+    "table_name":ERROR_LOG_TABLE_NAME,
+    "query": f"""
+            CREATE TABLE IF NOT EXISTS {STAGE_SCHEMA_NAME}.{ERROR_LOG_TABLE_NAME} (
+                error_id SERIAL PRIMARY KEY,
+                table_name TEXT NOT NULL,
+                id INTEGER NOT NULL,
+                error_type TEXT NOT NULL,
+                error_message TEXT NOT NULL,
+                error_dttm TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+        """
+    }
+
+]
+
+# 

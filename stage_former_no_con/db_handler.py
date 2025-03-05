@@ -66,6 +66,99 @@ class DBHandler:
         self.execute_query(query=q)
 
 
+        # insert into {error_table} (table_name, id, error_type, error_ddtm)
+        # select
+        #     '{table_name}' as table_name,
+        #     {table_primary_key} as id,
+        #     'not_unique' as error_type,
+        #     error_ddtm
+        # from cte;
+    
+
+    def process_unique2(self,
+                       schema_name,
+                       table_name,
+                       table_primary_key,
+                       column_name,
+                       error_table
+                       ):
+        
+        query_delete = f"""
+        with cte as (
+            select
+                {column_name},
+                row_number() over (partition by {column_name} order by {column_name}) as row_num,
+                now() as error_ddtm
+            from {schema_name}.{table_name}
+        )
+        delete from {schema_name}.{table_name}
+        where {column_name} in (
+            select {column_name}
+            from cte
+            where row_num > 1
+        );
+        """
+        print(query_delete)
+        
+        
+        return
+    
+    def process_unique(self,
+                    schema_name,
+                    table_name,
+                    table_primary_key,
+                    column_name,
+                    error_table
+                    ):
+        query_create_temp_table = f"""
+        create temp table temp_{table_name}_errors as
+        with cte as (
+            select 
+                {column_name},
+                row_number() over (partition by {column_name} order by {column_name}) as row_num,
+                now() as error_ddtm
+            from {schema_name}.{table_name}
+        )
+        select * from cte
+        where row_num > 1;
+        """
+        query_insert_error = f"""
+        insert into {schema_name}.{error_table} 
+        (table_name, id, error_type, error_message, error_dttm)
+        select 
+            '{table_name}' as table_name,
+            {table_primary_key}::integer as id,
+            'not_unique' as error_type,
+            'Duplicate in {column_name}' as error_message, -- Добавляем значение
+            error_ddtm
+        from temp_{table_name}_errors;
+        """
+        query_delete_duplicates = f"""
+        DELETE FROM {schema_name}.{table_name}
+        WHERE {column_name} IN (
+            SELECT {column_name}
+            FROM temp_{table_name}_errors
+        );
+        """
+        query_drop_temp_table = f"""
+        drop table if exists temp_{table_name}_errors;
+        """
+
+        try:
+            self.execute_query(query_drop_temp_table)
+            self.execute_query(query_create_temp_table)
+            self.execute_query(query_insert_error)
+            self.execute_query(query_delete_duplicates)
+            print(f"дубликаты в таблице {table_name} успешно обработаны.")
+        finally:
+            self.execute_query(query_drop_temp_table)
+
+        # print(query_create_temp_table)
+        # print(query_insert_error)
+        # print(query_delete_duplicates)
+        # print(query_drop_temp_table)
+
+
     def create_scheme(self, schema_name):
         self.execute_query(f"CREATE SCHEMA IF NOT EXISTS {schema_name};")
         print(f"{schema_name} created")
