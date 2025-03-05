@@ -35,6 +35,10 @@ class DBHandler:
             except Exception as e:
                 raise e
             
+    def clear_table(self, schema_name, table_name):
+        query = f"TRUNCATE TABLE {schema_name}.{table_name} RESTART IDENTITY CASCADE;"
+        self.execute_query(query)
+            
     def copy_data(self,
                 table_name,
                 schema_name,
@@ -57,51 +61,30 @@ class DBHandler:
        
 
     def create_table_text(self, schema_name, table_name, columns):
-        q = f"""
+        query = f"""
             create table {schema_name}.{table_name}
             (
             {",".join([f"{c} text" for c in columns])}
             );
             """
-        self.execute_query(query=q)
+        self.execute_query(query=query)
 
 
-        # insert into {error_table} (table_name, id, error_type, error_ddtm)
-        # select
-        #     '{table_name}' as table_name,
-        #     {table_primary_key} as id,
-        #     'not_unique' as error_type,
-        #     error_ddtm
-        # from cte;
-    
-
-    def process_unique2(self,
-                       schema_name,
-                       table_name,
-                       table_primary_key,
-                       column_name,
-                       error_table
-                       ):
+    def bad_source(self, 
+                    schema_name,
+                    bad_source_table_name,
+                    table_name,
+                    source: str,
+                    length: int
+                   ):
         
-        query_delete = f"""
-        with cte as (
-            select
-                {column_name},
-                row_number() over (partition by {column_name} order by {column_name}) as row_num,
-                now() as error_ddtm
-            from {schema_name}.{table_name}
-        )
-        delete from {schema_name}.{table_name}
-        where {column_name} in (
-            select {column_name}
-            from cte
-            where row_num > 1
-        );
+        query = f"""
+            INSERT INTO {schema_name}.{bad_source_table_name} 
+            (table_name, source, length)
+            VALUES 
+            ('{table_name}', '{source}', {length});
         """
-        print(query_delete)
-        
-        
-        return
+        self.execute_query(query=query)
     
     def process_unique(self,
                     schema_name,
@@ -149,7 +132,7 @@ class DBHandler:
             self.execute_query(query_create_temp_table)
             self.execute_query(query_insert_error)
             self.execute_query(query_delete_duplicates)
-            print(f"дубликаты в таблице {table_name} успешно обработаны.")
+            print(f"{table_name} - {column_name} processed")
         finally:
             self.execute_query(query_drop_temp_table)
 
