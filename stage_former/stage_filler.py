@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 import time
 
-from tables_info import TABLES_INFO, ERROR_LOG_TABLE_NAME, BAD_SOURCE_TABLE_NAME
+from tables_info import TABLES_INFO, ERROR_LOG_TABLE_NAME, BAD_SOURCE_TABLE_NAME, DATA_UPDATE_TABLE_NAME
 from inspections_register import INSPECTIONS_REGISTER
 from db_handler import DBHandler
 
@@ -119,6 +119,40 @@ class StageFiller:
                                            table_name=table_name,
                                            headers=headers)
         return
+    
+    def check_data_loss(self, k = 0.95):
+        for table_info in TABLES_INFO:
+            table_name, data_loaded, data_los, load_ratio = self.check_data_loss_table(table_info)
+            if load_ratio < k:
+                query = f"""
+                    INSERT INTO {STAGE_SCHEMA_NAME}.{DATA_UPDATE_TABLE_NAME} 
+                    (success, message)
+                    VALUES 
+                    (false, 'load_ratio = {load_ratio} < {k} in {table_name}');
+                """
+                self.db_handler.execute_query(query)
+                return
+        
+        query = f"""
+            INSERT INTO {STAGE_SCHEMA_NAME}.{DATA_UPDATE_TABLE_NAME} 
+            (success, message)
+            VALUES 
+            (TRUE, 'ok');
+        """
+        self.db_handler.execute_query(query)
+    
+    def check_data_loss_table(self, table_info):
+        table_name = table_info["table_name"]
+        data_loaded, data_los = self.db_handler.check_data_loss(schema_name=STAGE_SCHEMA_NAME,
+                                           table_name=table_name,)
+        
+        if data_loaded + data_los != 0:
+            load_ratio = data_loaded / (data_loaded + data_los)
+        else:
+            load_ratio = 0
+
+        return table_name, data_loaded, data_los, load_ratio
+
             
 
 
@@ -130,21 +164,19 @@ if __name__ == "__main__":
     elapsed_time = time.perf_counter() - start_time
     logger.log(f"Время, ушедшее на заполнение таблиц: {elapsed_time:.2f} секунд")
 
-    # Тестовое заполненеие кривыми данными
-    # sf.fill_table(table_info=TABLES_INFO[0]) # это product_type
-
     # Обработка
     start_time = time.perf_counter()
     sf.process_all()
     elapsed_time = time.perf_counter() - start_time
     logger.log(f"Время, ушедшее на очистку таблиц: {elapsed_time:.2f} секунд")
 
-
     # Изменение типов
     start_time = time.perf_counter()
     sf.change_types_all()
     elapsed_time = time.perf_counter() - start_time
     logger.log(f"Время, ушедшее на изменение типов: {elapsed_time:.2f} секунд")
+
+    sf.check_data_loss()
 
 
 

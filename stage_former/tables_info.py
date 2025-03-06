@@ -131,6 +131,8 @@ TABLES_INFO = [
 
 ERROR_LOG_TABLE_NAME = "error_log"
 BAD_SOURCE_TABLE_NAME = "bad_source"
+DATA_UPDATE_TABLE_NAME = "data_update"
+LOADED_AND_LOS_TABLE_NAME = "loaded_and_lost_data"
 
 SERVICE_TABLES = [
     {
@@ -157,8 +159,16 @@ SERVICE_TABLES = [
                 error_dttm TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
         """
-    }
-
+    },
+    {
+    "table_name":DATA_UPDATE_TABLE_NAME,
+    "query": f"""
+            CREATE TABLE IF NOT EXISTS {STAGE_SCHEMA_NAME}.{DATA_UPDATE_TABLE_NAME} (
+                id SERIAL PRIMARY KEY,
+                success boolean,
+                message TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        """
+    },
 ]
-
-# 
