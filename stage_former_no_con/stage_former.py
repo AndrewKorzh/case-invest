@@ -6,6 +6,7 @@ from db_handler import DBHandler
 
 sys.path.append(str(Path(__file__).parent.parent))
 from config import STAGE_SCHEMA_NAME
+from logger import logger
 
 class StageFormer:
     def __init__(self):
@@ -19,7 +20,7 @@ class StageFormer:
             
     def create_service_tables(self):
         for table in SERVICE_TABLES:
-            print(f"{table["table_name"]} creation...")
+            logger.log(f"{table["table_name"]} creation...")
             self.db_handler.execute_query(query = table["query"])
 
 

@@ -11,6 +11,8 @@ from db_handler import DBHandler
 
 sys.path.append(str(Path(__file__).parent.parent))
 from config import ARCHIVE_PATH, STAGE_SCHEMA_NAME
+from logger import logger
+
 
 def read_headers(file_path) -> list:
     with open(file_path, 'r') as f:
@@ -42,8 +44,9 @@ class StageFiller:
         self.db_handler = DBHandler()
 
     def fill_all(self):
+        logger.log("Filling Tables\n")
         for table_info in TABLES_INFO:
-            print(f"filling {table_info["table_name"]}...")
+            logger.log(f"Filling {table_info["table_name"]}...")
             self.fill_table(table_info)
 
     def fill_table(self, table_info:dict):
@@ -62,7 +65,6 @@ class StageFiller:
 
         
         for pair in failed_pairs:
-            print(pair)
             self.db_handler.bad_source(schema_name=STAGE_SCHEMA_NAME,
                                        table_name=table_name,
                                        bad_source_table_name=BAD_SOURCE_TABLE_NAME,
@@ -73,7 +75,7 @@ class StageFiller:
         
         for index, row in table.iterrows():
             if row["success"] == True:
-                print(f"{table_name} - {index+1}/{table.shape[0]}")
+                logger.log(f"{table_name} - {index+1}/{table.shape[0]}")
                 self.db_handler.copy_data(
                     table_name=table_name,
                     schema_name=STAGE_SCHEMA_NAME,
@@ -84,7 +86,7 @@ class StageFiller:
 
     def process_all(self):
         for table_inspections in INSPECTIONS_REGISTER:
-            print(f"process {table_inspections["table_name"]}...")
+            logger.log(f"process {table_inspections["table_name"]}...")
             self.process_table(table_inspections)
 
     def process_table(self, table_inspections:dict):
@@ -103,9 +105,21 @@ class StageFiller:
                     error_table=ERROR_LOG_TABLE_NAME
                 )
 
-        print(f"{table_name} processed")
+        logger.log(f"{table_name} processed")
 
+    def change_types_all(self):
+        for table_info in TABLES_INFO:
+            logger.log(f"changing {table_info["table_name"]}...")
+            self.change_types_table(table_info)
 
+    def change_types_table(self, table_info):
+        table_name = table_info["table_name"]
+        headers = table_info["headers"]
+        self.db_handler.change_table_types(schema_name=STAGE_SCHEMA_NAME,
+                                           table_name=table_name,
+                                           headers=headers)
+        return
+            
 
 
 if __name__ == "__main__":
@@ -114,7 +128,7 @@ if __name__ == "__main__":
     start_time = time.perf_counter()
     sf.fill_all()
     elapsed_time = time.perf_counter() - start_time
-    print(f"Время, ушедшее на заполнение таблиц: {elapsed_time:.2f} секунд")
+    logger.log(f"Время, ушедшее на заполнение таблиц: {elapsed_time:.2f} секунд")
 
     # Тестовое заполненеие кривыми данными
     # sf.fill_table(table_info=TABLES_INFO[0]) # это product_type
@@ -123,13 +137,15 @@ if __name__ == "__main__":
     start_time = time.perf_counter()
     sf.process_all()
     elapsed_time = time.perf_counter() - start_time
-    print(f"Время, ушедшее на очистку таюлиц: {elapsed_time:.2f} секунд")
+    logger.log(f"Время, ушедшее на очистку таблиц: {elapsed_time:.2f} секунд")
+
 
     # Изменение типов
+    start_time = time.perf_counter()
+    sf.change_types_all()
+    elapsed_time = time.perf_counter() - start_time
+    logger.log(f"Время, ушедшее на изменение типов: {elapsed_time:.2f} секунд")
 
 
-# ALTER TABLE your_table 
-# ALTER COLUMN created_at TYPE DATE USING TO_DATE(created_at, 'DD/MM/YYYY');
 
-# ALTER TABLE your_table 
-# ALTER COLUMN product_type_cd TYPE INT USING NULLIF(product_type_cd, '')::INTEGER;
+

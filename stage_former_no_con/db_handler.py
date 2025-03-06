@@ -5,6 +5,22 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 from config import DB_CONFIG
 
+from logger import logger
+
+
+# return f"alter column {column_name} type integer using coalesce({column_name}::text, null)::integer"
+def alter_type_change(column_type:str, column_name):
+    column_type = column_type.lower()
+    if column_type == "integer":
+        return f"alter column {column_name} type integer using nullif({column_name}::text, '')::integer"
+    if column_type == "decimal(12,6)":
+        return f"ALTER COLUMN {column_name}  TYPE DECIMAL(12,6) USING NULLIF({column_name}::TEXT, ''):: DECIMAL(12,6)"
+    if column_type == "timestamp":
+        return f"ALTER COLUMN {column_name} TYPE TIMESTAMP USING NULLIF({column_name}::TEXT, '')::TIMESTAMP"
+    if column_type == "date":
+        return f"ALTER COLUMN {column_name} TYPE DATE USING NULLIF({column_name}::TEXT, '')::DATE"
+    return None
+
 class DBHandler:
     def __init__(self):
         self.db_config = DB_CONFIG
@@ -132,24 +148,37 @@ class DBHandler:
             self.execute_query(query_create_temp_table)
             self.execute_query(query_insert_error)
             self.execute_query(query_delete_duplicates)
-            print(f"{table_name} - {column_name} processed")
         finally:
             self.execute_query(query_drop_temp_table)
 
-        # print(query_create_temp_table)
-        # print(query_insert_error)
-        # print(query_delete_duplicates)
-        # print(query_drop_temp_table)
+    def change_table_types(self,
+                     schema_name,
+                     table_name,
+                     headers: dict):
+        alters = []
+        for key, val in headers.items():
+            alter = alter_type_change(column_type=val["type"],column_name=key)
+            if alter:
+                alters.append(alter)
+        query = f"""
+            alter table {schema_name}.{table_name}
+            {",\n".join(alters)}
+        """
+        self.execute_query(query=query)
+    
+
+
+
 
 
     def create_scheme(self, schema_name):
         self.execute_query(f"CREATE SCHEMA IF NOT EXISTS {schema_name};")
-        print(f"{schema_name} created")
+        logger.log(f"{schema_name} created")
 
 
     def drop_scheme(self, schema_name):
         self.execute_query(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE;")
-        print(f"{schema_name} droped")
+        logger.log(f"{schema_name} droped")
         
 
     def close(self):
@@ -160,9 +189,9 @@ class DBHandler:
 
     def __del__(self):
         self.close()
-        print("connection closed")
+        logger.log("connection closed")
     
 
 if __name__ == "__main__":
     dh = DBHandler()
-    print(dh.fetch_all(f"select* from test_tables2.product_type"))
+    logger.log(dh.fetch_all(f"select* from test_tables2.product_type"))
