@@ -5,6 +5,22 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 from config import DB_CONFIG
 
+from logger import logger
+
+
+# return f"alter column {column_name} type integer using coalesce({column_name}::text, null)::integer"
+def alter_type_change(column_type:str, column_name):
+    column_type = column_type.lower()
+    if column_type == "integer":
+        return f"alter column {column_name} type integer using nullif({column_name}::text, '')::integer"
+    if column_type == "decimal(12,6)":
+        return f"ALTER COLUMN {column_name}  TYPE DECIMAL(12,6) USING NULLIF({column_name}::TEXT, ''):: DECIMAL(12,6)"
+    if column_type == "timestamp":
+        return f"ALTER COLUMN {column_name} TYPE TIMESTAMP USING NULLIF({column_name}::TEXT, '')::TIMESTAMP"
+    if column_type == "date":
+        return f"ALTER COLUMN {column_name} TYPE DATE USING NULLIF({column_name}::TEXT, '')::DATE"
+    return None
+
 class DBHandler:
     def __init__(self):
         self.db_config = DB_CONFIG
@@ -35,6 +51,10 @@ class DBHandler:
             except Exception as e:
                 raise e
             
+    def clear_table(self, schema_name, table_name):
+        query = f"TRUNCATE TABLE {schema_name}.{table_name} RESTART IDENTITY CASCADE;"
+        self.execute_query(query)
+            
     def copy_data(self,
                 table_name,
                 schema_name,
@@ -55,52 +75,110 @@ class DBHandler:
             except Exception as e:
                 raise e
        
-    def create_temp_table(self,
-                          table_name,
-                          schema_name,
-                          headers: list):
-        self.execute_query(f"DROP TABLE IF EXISTS {schema_name}.{table_name};")
-        query = f"create table {schema_name}.{table_name}(\n{",\n".join([f"{c} text" for c in headers])});"
+
+    def create_table_text(self, schema_name, table_name, columns):
+        query = f"""
+            create table {schema_name}.{table_name}
+            (
+            {",".join([f"{c} text" for c in columns])}
+            );
+            """
         self.execute_query(query=query)
 
-    def delete_all_table_data(self, table_name, schema_name):
+
+    def bad_source(self, 
+                    schema_name,
+                    bad_source_table_name,
+                    table_name,
+                    source: str,
+                    length: int
+                   ):
+        
+        query = f"""
+            INSERT INTO {schema_name}.{bad_source_table_name} 
+            (table_name, source, length)
+            VALUES 
+            ('{table_name}', '{source}', {length});
+        """
+        self.execute_query(query=query)
+    
+    def process_unique(self,
+                    schema_name,
+                    table_name,
+                    table_primary_key,
+                    column_name,
+                    error_table
+                    ):
+        query_create_temp_table = f"""
+        create temp table temp_{table_name}_errors as
+        with cte as (
+            select 
+                {column_name},
+                row_number() over (partition by {column_name} order by {column_name}) as row_num,
+                now() as error_ddtm
+            from {schema_name}.{table_name}
+        )
+        select * from cte
+        where row_num > 1;
+        """
+        query_insert_error = f"""
+        insert into {schema_name}.{error_table} 
+        (table_name, id, error_type, error_message, error_dttm)
+        select 
+            '{table_name}' as table_name,
+            {table_primary_key}::integer as id,
+            'not_unique' as error_type,
+            'Duplicate in {column_name}' as error_message, -- Добавляем значение
+            error_ddtm
+        from temp_{table_name}_errors;
+        """
+        query_delete_duplicates = f"""
+        DELETE FROM {schema_name}.{table_name}
+        WHERE {column_name} IN (
+            SELECT {column_name}
+            FROM temp_{table_name}_errors
+        );
+        """
+        query_drop_temp_table = f"""
+        drop table if exists temp_{table_name}_errors;
+        """
+
         try:
-            self.execute_query(f"TRUNCATE TABLE {schema_name}.{table_name} CASCADE;")
-        except Exception as e:
-            print(f"Ошибка: {e}")
-            raise e
+            self.execute_query(query_drop_temp_table)
+            self.execute_query(query_create_temp_table)
+            self.execute_query(query_insert_error)
+            self.execute_query(query_delete_duplicates)
+        finally:
+            self.execute_query(query_drop_temp_table)
 
-    def move_from_temp(self, temp_table_name, main_table_info: dict, schema_name):
-        table_name = main_table_info["table_name"]
-        self.delete_all_table_data(table_name, schema_name)
-        headers = list(main_table_info["headers"].keys())
-        type_mapping = []
-        for header in headers:
-            column_type = main_table_info["headers"][header].get("type", "text")
-            type_mapping.append(f"CASE WHEN {header}::text = '' THEN NULL ELSE {header}::{column_type} END")
+    def change_table_types(self,
+                     schema_name,
+                     table_name,
+                     headers: dict):
+        alters = []
+        for key, val in headers.items():
+            alter = alter_type_change(column_type=val["type"],column_name=key)
+            if alter:
+                alters.append(alter)
+        query = f"""
+            alter table {schema_name}.{table_name}
+            {",\n".join(alters)}
+        """
+        self.execute_query(query=query)
+    
 
-        self.execute_query(f"""
-                            insert into {schema_name}.{table_name} ({", ".join(headers)})
-                            select {", ".join(type_mapping)}
-                            from {schema_name}.{temp_table_name}
-                           """)
+
+
+
 
     def create_scheme(self, schema_name):
-        try:
-            self.execute_query(f"CREATE SCHEMA IF NOT EXISTS {schema_name};")
-            print(f"{schema_name} created")
-        except Exception as e:
-            print(f"Ошибка: {e}")
-            raise e
+        self.execute_query(f"CREATE SCHEMA IF NOT EXISTS {schema_name};")
+        logger.log(f"{schema_name} created")
+
 
     def drop_scheme(self, schema_name):
-        try:
-            self.execute_query(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE;")
-            print(f"{schema_name} droped")
-        except Exception as e:
-            print(f"Ошибка: {e}")
-            raise e
-
+        self.execute_query(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE;")
+        logger.log(f"{schema_name} droped")
         
 
     def close(self):
@@ -111,16 +189,9 @@ class DBHandler:
 
     def __del__(self):
         self.close()
-        print("connection closed")
+        logger.log("connection closed")
     
 
 if __name__ == "__main__":
     dh = DBHandler()
-    print(dh.fetch_all(f"select* from test_tables2.product_type"))
-
-
-
-# if column_type.lower() == "timestamp":
-#     type_mapping.append(f"CASE WHEN {header}::text = '' THEN NULL ELSE to_timestamp({header}::text, 'YYYY-MM-DDTHH24:MI:SS.US TZ') END")
-# else:
-#     type_mapping.append(f"COALESCE({header}::{column_type}, NULL)")
+    logger.log(dh.fetch_all(f"select* from test_tables2.product_type"))
