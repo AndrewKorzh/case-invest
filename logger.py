@@ -8,6 +8,7 @@ class Logger:
     def log(self, message, r033 = False, end = "\n"):
         if r033:
             sys.stdout.write("\r\033[K")
+            end = ""
         sys.stdout.write(f"{message}{end}")
         sys.stdout.flush()
 

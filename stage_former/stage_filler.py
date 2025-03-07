@@ -43,13 +43,16 @@ class StageFiller:
     def __init__(self):
         self.db_handler = DBHandler()
 
-    def fill_all(self):
-        logger.log("filling Tables\n")
+    def fill_all(self, clean_before_insert = True):
+        logger.log("Filling Tables\n")
+        if clean_before_insert:
+            self.db_handler.clear_table(schema_name=STAGE_SCHEMA_NAME,table_name=BAD_SOURCE_TABLE_NAME)
+            self.db_handler.clear_table(schema_name=STAGE_SCHEMA_NAME,table_name=ERROR_LOG_TABLE_NAME)
         for table_info in TABLES_INFO:
-            logger.log(f"Filling {table_info["table_name"]}...")
-            self.fill_table(table_info)
+            logger.log(f"{table_info["table_name"]}...")
+            self.fill_table(table_info, clean_before_insert=clean_before_insert)
 
-    def fill_table(self, table_info:dict):
+    def fill_table(self, table_info:dict, clean_before_insert = True):
         dir_name = table_info["dir_name"]
         table_name = table_info["table_name"]
         required_headers = list(table_info["headers"].keys())
@@ -60,12 +63,13 @@ class StageFiller:
         for i, file_path in enumerate(all_files):
             table.loc[i] = check_file(file_path=file_path, required_headers=required_headers)
 
-        self.db_handler.clear_table(schema_name=STAGE_SCHEMA_NAME,table_name=table_name)
+        if clean_before_insert:
+            self.db_handler.clear_table(schema_name=STAGE_SCHEMA_NAME,table_name=table_name)
         
         for index, row in table.iterrows():
             file_success = row["success"]
             if file_success == True:
-                # logger.log(f"{table_name} - {index+1}/{table.shape[0]}")
+                logger.log(f"{table_name} - {index+1}/{table.shape[0]}", r033=True)
                 file_success = self.db_handler.copy_data(
                     table_name=table_name,
                     schema_name=STAGE_SCHEMA_NAME,
@@ -80,12 +84,18 @@ class StageFiller:
                                             bad_source_table_name=BAD_SOURCE_TABLE_NAME,
                                             source=row["file_path"],
                                             length=row["lines_amt"])
+        logger.log("")
 
-    def process_all(self):
+    def data_quality_check(self):
+        # Очистка таблиц некоторых (чтобы не скапливалось ничего)
+        # Заполнение данными 
+        # Расчёт 
+        # Отедельно расчёт показателей
         for table_inspections in INSPECTIONS_REGISTER:
             logger.log(f"process {table_inspections["table_name"]}...")
             self.process_table(table_inspections)
 
+    # Применение проверки ckeck_applying
     def process_table(self, table_inspections:dict):
         table_name = table_inspections["table_name"]
         primary_key = table_inspections["primary_key"]
@@ -93,64 +103,41 @@ class StageFiller:
 
         for i in inspections:
             inspection_type = i["type"]
-            if inspection_type == "UNIQUE":
+            if inspection_type == "DUPLICATE":
                 self.db_handler.process_unique(
                     schema_name=STAGE_SCHEMA_NAME,
                     table_name=table_name,
                     table_primary_key=primary_key,
-                    column_name=i["collumn"],
+                    column_name=i["column"],
+                    error_type = "DUPLICATE",
+                    error_table=ERROR_LOG_TABLE_NAME
+                )
+            # > - все которые больше, < - меньше
+            if inspection_type == "MAXIMUM_VALUE_EXCEEDED":
+                self.db_handler.process_bound_value(
+                    schema_name=STAGE_SCHEMA_NAME,
+                    table_name=table_name,
+                    table_primary_key=primary_key,
+                    column_name=i["column"],
+                    error_type = "MAXIMUM_VALUE_EXCEEDED",
+                    value=i["value"],
+                    sign=">",
+                    error_table=ERROR_LOG_TABLE_NAME
+                )
+                # 
+            if inspection_type == "BELOW_MINIMUM_THRESHOLD":
+                self.db_handler.process_bound_value(
+                    schema_name=STAGE_SCHEMA_NAME,
+                    table_name=table_name,
+                    table_primary_key=primary_key,
+                    column_name=i["column"],
+                    error_type = "BELOW_MINIMUM_THRESHOLD",
+                    value=i["value"],
+                    sign="<",
                     error_table=ERROR_LOG_TABLE_NAME
                 )
 
         logger.log(f"{table_name} processed")
-
-    def change_types_all(self):
-        for table_info in TABLES_INFO:
-            logger.log(f"changing {table_info["table_name"]}...")
-            self.change_types_table(table_info)
-
-    def change_types_table(self, table_info):
-        table_name = table_info["table_name"]
-        headers = table_info["headers"]
-        self.db_handler.change_table_types(schema_name=STAGE_SCHEMA_NAME,
-                                           table_name=table_name,
-                                           headers=headers)
-        return
-    
-    def check_data_loss(self, k = 0.95):
-        for table_info in TABLES_INFO:
-            table_name, data_loaded, data_los, load_ratio = self.check_data_loss_table(table_info)
-            if load_ratio < k:
-                query = f"""
-                    INSERT INTO {STAGE_SCHEMA_NAME}.{DATA_UPDATE_TABLE_NAME} 
-                    (success, message)
-                    VALUES 
-                    (false, 'load_ratio = {load_ratio} < {k} in {table_name}');
-                """
-                self.db_handler.execute_query(query)
-                return
-        
-        query = f"""
-            INSERT INTO {STAGE_SCHEMA_NAME}.{DATA_UPDATE_TABLE_NAME} 
-            (success, message)
-            VALUES 
-            (TRUE, 'ok');
-        """
-        self.db_handler.execute_query(query)
-    
-    def check_data_loss_table(self, table_info):
-        table_name = table_info["table_name"]
-        data_loaded, data_los = self.db_handler.check_data_loss(schema_name=STAGE_SCHEMA_NAME,
-                                           table_name=table_name,)
-        
-        if data_loaded + data_los != 0:
-            load_ratio = data_loaded / (data_loaded + data_los)
-        else:
-            load_ratio = 0
-
-        return table_name, data_loaded, data_los, load_ratio
-
-            
 
 
 if __name__ == "__main__":
@@ -161,18 +148,11 @@ if __name__ == "__main__":
     elapsed_time = time.perf_counter() - start_time
     logger.log(f"Время, ушедшее на заполнение таблиц: {elapsed_time:.2f} секунд")
 
-    # # Обработка
-    # start_time = time.perf_counter()
-    # sf.process_all()
-    # elapsed_time = time.perf_counter() - start_time
-    # logger.log(f"Время, ушедшее на очистку таблиц: {elapsed_time:.2f} секунд")
-
-    # # Изменение типов
-    # start_time = time.perf_counter()
-    # sf.change_types_all()
-    # elapsed_time = time.perf_counter() - start_time
-    # logger.log(f"Время, ушедшее на изменение типов: {elapsed_time:.2f} секунд")
-
+    # Обработка
+    start_time = time.perf_counter()
+    sf.data_quality_check()
+    elapsed_time = time.perf_counter() - start_time
+    logger.log(f"Время, ушедшее на обработку таблиц: {elapsed_time:.2f} секунд")
 
 
     # # Проверка данных

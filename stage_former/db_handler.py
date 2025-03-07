@@ -8,19 +8,6 @@ from config import DB_CONFIG
 from logger import logger
 
 
-# return f"alter column {column_name} type integer using coalesce({column_name}::text, null)::integer"
-def alter_type_change(column_type:str, column_name):
-    column_type = column_type.lower()
-    if column_type == "integer":
-        return f"alter column {column_name} type integer using nullif({column_name}::text, '')::integer"
-    if column_type == "decimal(12,6)":
-        return f"ALTER COLUMN {column_name}  TYPE DECIMAL(12,6) USING NULLIF({column_name}::TEXT, ''):: DECIMAL(12,6)"
-    if column_type == "timestamp":
-        return f"ALTER COLUMN {column_name} TYPE TIMESTAMP USING NULLIF({column_name}::TEXT, '')::TIMESTAMP"
-    if column_type == "date":
-        return f"ALTER COLUMN {column_name} TYPE DATE USING NULLIF({column_name}::TEXT, '')::DATE"
-    return None
-
 class DBHandler:
     def __init__(self):
         self.db_config = DB_CONFIG
@@ -44,7 +31,6 @@ class DBHandler:
 
 
     def fetch_all(self, query, params=None):
-        """Выборка всех данных"""
         if self.cursor:
             try:
                 self.cursor.execute(query, params)
@@ -56,8 +42,7 @@ class DBHandler:
         query = f"TRUNCATE TABLE {schema_name}.{table_name} RESTART IDENTITY CASCADE;"
         self.execute_query(query)
 
-
-    def coppy_data_attemptself(self, table_name, schema_name, file_path, columns, has_headers, null_exp):
+    def coppy_data_attempt(self, table_name, schema_name, file_path, columns, has_headers, null_exp):
         sql = f"""
             COPY {schema_name}.{table_name} ({",".join(columns)}) 
             FROM STDIN WITH (FORMAT CSV, HEADER {has_headers}, DELIMITER ',', QUOTE '''', NULL '{null_exp}')
@@ -73,13 +58,11 @@ class DBHandler:
             return False
             
     def copy_data(self, table_name, schema_name, file_path, columns, has_headers):
-        if self.coppy_data_attemptself(table_name, schema_name, file_path, columns, has_headers, null_exp ='""'):
+        if self.coppy_data_attempt(table_name, schema_name, file_path, columns, has_headers, null_exp ='""'):
             return True
-        if self.coppy_data_attemptself(table_name, schema_name, file_path, columns, has_headers, null_exp =''):
+        if self.coppy_data_attempt(table_name, schema_name, file_path, columns, has_headers, null_exp =''):
             return True
-
         print(f"Ошибка в {table_name}")
-
         return False
 
 
@@ -114,49 +97,51 @@ class DBHandler:
                     table_name,
                     table_primary_key,
                     column_name,
+                    error_type,
                     error_table
                     ):
-        query_create_temp_table = f"""
-        create temp table temp_{table_name}_errors as
-        with cte as (
-            select 
-                {column_name},
-                row_number() over (partition by {column_name} order by {column_name}) as row_num,
-                now() as error_ddtm
-            from {schema_name}.{table_name}
-        )
-        select * from cte
-        where row_num > 1;
-        """
-        query_insert_error = f"""
-        insert into {schema_name}.{error_table} 
-        (table_name, id, error_type, error_message, error_dttm)
-        select 
-            '{table_name}' as table_name,
-            {table_primary_key}::integer as id,
-            'not_unique' as error_type,
-            'Duplicate in {column_name}' as error_message, -- Добавляем значение
-            error_ddtm
-        from temp_{table_name}_errors;
-        """
-        # query_delete_duplicates = f"""
-        # DELETE FROM {schema_name}.{table_name}
-        # WHERE {column_name} IN (
-        #     SELECT {column_name}
-        #     FROM temp_{table_name}_errors
-        # );
-        # """
-        query_drop_temp_table = f"""
-        drop table if exists temp_{table_name}_errors;
-        """
+        
+        q = f"""
+            INSERT INTO {schema_name}.{error_table} (table_name, id, error_type, error_message)
+            SELECT 
+                '{table_name}',
+                t.{table_primary_key},
+                '{error_type}',
+                'Duplicate entry found'
+            FROM {schema_name}.{table_name} t
+            JOIN (
+                SELECT {table_primary_key}
+                FROM {schema_name}.{table_name}
+                GROUP BY {column_name}
+                HAVING COUNT(*) > 1
+            ) d ON t.{table_primary_key} = d.{table_primary_key};
+            """
 
-        try:
-            self.execute_query(query_drop_temp_table)
-            self.execute_query(query_create_temp_table)
-            self.execute_query(query_insert_error)
-            # self.execute_query(query_delete_duplicates)
-        finally:
-            self.execute_query(query_drop_temp_table)
+        self.execute_query(q)
+
+    def process_bound_value(self,
+                    schema_name,
+                    table_name,
+                    table_primary_key,
+                    column_name,
+                    error_type,
+                    value,
+                    sign,
+                    error_table
+                    ):
+        
+        q = f"""
+                INSERT INTO {schema_name}.{error_table} (table_name, id, error_type, error_message)
+                SELECT 
+                    '{table_name}',
+                    t.{table_primary_key},
+                    '{error_type}',
+                    '{column_name} {sign} {value}'
+                FROM {schema_name}.{table_name} t
+                WHERE t.{column_name} {sign} {value};
+            """
+
+        self.execute_query(q)
     
 
     def check_data_loss(self, schema_name, table_name):
