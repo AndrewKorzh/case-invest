@@ -7,125 +7,125 @@ TABLES_INFO = [
     {
     "dir_name":"product_type",
     "table_name":"product_type",
-    "headers": {"product_type_cd":{"type":"integer"},
-                "product_type_nm":{"type":"text"}}
+    "headers": {"product_type_cd":"integer",
+                "product_type_nm":"text"}
     },
     {
     "dir_name":"crm_account_status",
     "table_name":"crm_account_status",
-    "headers": {"account_status_cd":{"type":"integer"},
-                "account_status_nm":{"type":"text"}}
+    "headers": {"account_status_cd":"integer",
+                "account_status_nm":"text"}
     },
     {
     "dir_name":"advert_source",
     "table_name":"advert_source",
-    "headers": {"advert_source_id":{"type":"integer"},
-                "advert_source_nm":{"type":"text"},
-                "monthly_payment_amt":{"type":"decimal(12,6)"},
-                "start_month":{"type":"integer"},
-                "end_month":{"type":"integer"},
-                "create_dttm":{"type":"timestamp"},
-                "delete_dttm":{"type":"timestamp"}}       
+    "headers": {"advert_source_id":"integer",
+                "advert_source_nm":"text",
+                "monthly_payment_amt":"decimal(12,6)",
+                "start_month":"integer",
+                "end_month":"integer",
+                "create_dttm":"timestamp",
+                "delete_dttm":"timestamp"}       
     },
     {
     "dir_name":"crm_transaction_type",
     "table_name":"crm_transaction_type",
-    "headers": {"transaction_type_cd":{"type":"integer"},
-                "transaction_type_nm":{"type":"text"}}
+    "headers": {"transaction_type_cd":"integer",
+                "transaction_type_nm":"text"}
     },
     {
     "dir_name":"crm_account_type",
     "table_name":"crm_account_type",
-    "headers": {"account_type_cd":{"type":"integer"},
-                "account_type_nm":{"type":"text"}}
+    "headers": {"account_type_cd":"integer",
+                "account_type_nm":"text"}
     },
     {
     "dir_name":"service_request_status",
     "table_name":"service_request_status",
-    "headers": {"service_request_status_cd":{"type":"integer"},
-                "service_request_status_nm":{"type":"text"}}
+    "headers": {"service_request_status_cd":"integer",
+                "service_request_status_nm":"text"}
     },
     {
     "dir_name":"service_request_type",
     "table_name":"service_request_type",
-    "headers": {"service_request_type_cd":{"type":"integer"},
-                "service_request_type_nm":{"type":"text"}}
+    "headers": {"service_request_type_cd":"integer",
+                "service_request_type_nm":"text"}
     },
 
     {
     "dir_name":"cab_customer",
     "table_name":"cab_customer",
-    "headers": {"customer_id":{"type":"integer"},
-                "birth_dt":{"type":"date"},
-                "passport_num":{"type":"text"},
-                "phone_num":{"type":"text"},
-                "add_phone_num":{"type":"text"},
-                "email":{"type":"text"},
-                "reg_address_txt":{"type":"text"},
-                "fact_address_txt":{"type":"text"},
-                "first_nm":{"type":"text"},
-                "last_nm":{"type":"text"},
-                "middle_nm":{"type":"text"},
-                "create_dttm":{"type":"timestamp"},
-                "delete_dttm":{"type":"timestamp"}}       
+    "headers": {"customer_id":"integer",
+                "birth_dt":"date",
+                "passport_num":"text",
+                "phone_num":"text",
+                "add_phone_num":"text",
+                "email":"text",
+                "reg_address_txt":"text",
+                "fact_address_txt":"text",
+                "first_nm":"text",
+                "last_nm":"text",
+                "middle_nm":"text",
+                "create_dttm":"timestamp",
+                "delete_dttm":"timestamp"}       
     },
     {
     "dir_name":"service_request",
     "table_name":"service_request",
-    "headers": {"service_request_id":{"type":"integer"},
-                "customer_id":{"type":"integer"},
-                "service_request_type_cd":{"type":"integer"},
-                "service_request_status_cd":{"type":"integer"},
-                "tail_limit":{"type":"integer"},
-                "create_dttm":{"type":"timestamp"},
-                "delete_dttm":{"type":"timestamp"},}
+    "headers": {"service_request_id":"integer",
+                "customer_id":"integer",
+                "service_request_type_cd":"integer",
+                "service_request_status_cd":"integer",
+                "tail_limit":"integer",
+                "create_dttm":"timestamp",
+                "delete_dttm":"timestamp",}
     },
 
     {
     "dir_name":"crm_customer",
     "table_name":"crm_customer",
-    "headers": {"crm_customer_id":{"type":"integer"},
-                "customer_id":{"type":"integer"},
-                "birth_dt":{"type":"timestamp"},
-                "phone_num":{"type":"text"},
-                "email":{"type":"text"},                   
-                "first_nm":{"type":"text"},
-                "last_nm":{"type":"text"},
-                "create_dttm":{"type":"timestamp"},
-                "delete_dttm":{"type":"timestamp"}}  
+    "headers": {"crm_customer_id":"integer",
+                "customer_id":"integer",
+                "birth_dt":"timestamp",
+                "phone_num":"text",
+                "email":"text",                   
+                "first_nm":"text",
+                "last_nm":"text",
+                "create_dttm":"timestamp",
+                "delete_dttm":"timestamp"}  
     },
     {
     "dir_name":"application",
     "table_name":"application",
-    "headers": {"application_id":{"type":"integer"},
-                "product_type_cd":{"type":"integer"},
-                "customer_id":{"type":"integer"},
-                "advert_source_id":{"type":"integer"},
-                "create_dttm":{"type":"timestamp"},
-                "delete_dttm":{"type":"timestamp"},}
+    "headers": {"application_id":"integer",
+                "product_type_cd":"integer",
+                "customer_id":"integer",
+                "advert_source_id":"integer",
+                "create_dttm":"timestamp",
+                "delete_dttm":"timestamp",}
     },
     {
     "dir_name":"crm_account",
     "table_name":"crm_account",
-    "headers": {"account_id":{"type":"integer"},
-                "account_type_cd":{"type":"integer"},
-                "acccount_create_dt":{"type":"date"},
-                "account_status_cd":{"type":"integer"},
-                "application_id":{"type":"integer"},
-                "create_dttm":{"type":"timestamp"},
-                "delete_dttm":{"type":"timestamp"},}
+    "headers": {"account_id":"integer",
+                "account_type_cd":"integer",
+                "acccount_create_dt":"date",
+                "account_status_cd":"integer",
+                "application_id":"integer",
+                "create_dttm":"timestamp",
+                "delete_dttm":"timestamp",}
     },
     {
     "dir_name":"crm_transaction",
     "table_name":"crm_transaction",
-    "headers": {"transaction_id":{"type":"integer"},
-                "orig_id":{"type":"integer"},
-                "account_id":{"type":"integer"},
-                "transaction_type_cd":{"type":"integer"},
-                "transaction_amt":{"type":"decimal(12,6)"},
-                "transaction_dttm":{"type":"timestamp"},
-                "create_dttm":{"type":"timestamp"},
-                "delete_dttm":{"type":"timestamp"}}
+    "headers": {"transaction_id":"integer",
+                "orig_id":"integer",
+                "account_id":"integer",
+                "transaction_type_cd":"integer",
+                "transaction_amt":"decimal(12,6)",
+                "transaction_dttm":"timestamp",
+                "create_dttm":"timestamp",
+                "delete_dttm":"timestamp"}
     }
 ]
 

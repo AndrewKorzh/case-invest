@@ -22,9 +22,9 @@ def read_headers(file_path) -> list:
 
 def count_lines(file_path, chunk_size=1024 * 1024):
     count = 0
-    with open(file_path, 'rb') as f:  # Открываем в бинарном режиме (быстрее)
-        while chunk := f.read(chunk_size):  # Читаем файл блоками (чанками)
-            count += chunk.count(b'\n')  # Считаем количество `\n` в чанке
+    with open(file_path, 'rb') as f:
+        while chunk := f.read(chunk_size):
+            count += chunk.count(b'\n')
     return count
 
 def check_file(file_path, required_headers):
@@ -44,7 +44,7 @@ class StageFiller:
         self.db_handler = DBHandler()
 
     def fill_all(self):
-        logger.log("Filling Tables\n")
+        logger.log("filling Tables\n")
         for table_info in TABLES_INFO:
             logger.log(f"Filling {table_info["table_name"]}...")
             self.fill_table(table_info)
@@ -60,29 +60,26 @@ class StageFiller:
         for i, file_path in enumerate(all_files):
             table.loc[i] = check_file(file_path=file_path, required_headers=required_headers)
 
-        
-        failed_pairs = table.loc[~table["success"], ["file_path", "lines_amt"]].values.tolist()
-
-        
-        for pair in failed_pairs:
-            self.db_handler.bad_source(schema_name=STAGE_SCHEMA_NAME,
-                                       table_name=table_name,
-                                       bad_source_table_name=BAD_SOURCE_TABLE_NAME,
-                                       source=pair[0],
-                                       length=pair[1])
-            
         self.db_handler.clear_table(schema_name=STAGE_SCHEMA_NAME,table_name=table_name)
         
         for index, row in table.iterrows():
-            if row["success"] == True:
-                logger.log(f"{table_name} - {index+1}/{table.shape[0]}")
-                self.db_handler.copy_data(
+            file_success = row["success"]
+            if file_success == True:
+                # logger.log(f"{table_name} - {index+1}/{table.shape[0]}")
+                file_success = self.db_handler.copy_data(
                     table_name=table_name,
                     schema_name=STAGE_SCHEMA_NAME,
                     file_path=row["file_path"],
-                    headers=required_headers,
+                    columns=required_headers,
                     has_headers=row["headers"]
                 )
+            
+            if file_success != True:
+                self.db_handler.add_bad_source(schema_name=STAGE_SCHEMA_NAME,
+                                            table_name=table_name,
+                                            bad_source_table_name=BAD_SOURCE_TABLE_NAME,
+                                            source=row["file_path"],
+                                            length=row["lines_amt"])
 
     def process_all(self):
         for table_inspections in INSPECTIONS_REGISTER:
@@ -164,20 +161,24 @@ if __name__ == "__main__":
     elapsed_time = time.perf_counter() - start_time
     logger.log(f"Время, ушедшее на заполнение таблиц: {elapsed_time:.2f} секунд")
 
-    # Обработка
-    start_time = time.perf_counter()
-    sf.process_all()
-    elapsed_time = time.perf_counter() - start_time
-    logger.log(f"Время, ушедшее на очистку таблиц: {elapsed_time:.2f} секунд")
+    # # Обработка
+    # start_time = time.perf_counter()
+    # sf.process_all()
+    # elapsed_time = time.perf_counter() - start_time
+    # logger.log(f"Время, ушедшее на очистку таблиц: {elapsed_time:.2f} секунд")
 
-    # Изменение типов
-    start_time = time.perf_counter()
-    sf.change_types_all()
-    elapsed_time = time.perf_counter() - start_time
-    logger.log(f"Время, ушедшее на изменение типов: {elapsed_time:.2f} секунд")
-
-    sf.check_data_loss()
+    # # Изменение типов
+    # start_time = time.perf_counter()
+    # sf.change_types_all()
+    # elapsed_time = time.perf_counter() - start_time
+    # logger.log(f"Время, ушедшее на изменение типов: {elapsed_time:.2f} секунд")
 
 
+
+    # # Проверка данных
+    # start_time = time.perf_counter()
+    # sf.check_data_loss()
+    # elapsed_time = time.perf_counter() - start_time
+    # logger.log(f"Время, ушедшее на проверку данных: {elapsed_time:.2f} секунд")
 
 

@@ -33,14 +33,15 @@ class DBHandler:
         self.cursor = self.connection.cursor()
 
     def execute_query(self, query, params=None):
-        """Выполнение SQL-запроса"""
-        if self.cursor:
-            try:
-                self.cursor.execute(query, params)
-                self.connection.commit()
-            except Exception as e:
-                self.connection.rollback()
-                raise e
+        try:
+            self.cursor.execute(query, params)
+            self.connection.commit()
+        except Exception as e:
+            # self.connection.rollback()
+            print(f"Ошибка выполнения SQL: {e}")
+            return False
+        return True
+
 
     def fetch_all(self, query, params=None):
         """Выборка всех данных"""
@@ -54,39 +55,45 @@ class DBHandler:
     def clear_table(self, schema_name, table_name):
         query = f"TRUNCATE TABLE {schema_name}.{table_name} RESTART IDENTITY CASCADE;"
         self.execute_query(query)
-            
-    def copy_data(self,
-                table_name,
-                schema_name,
-                file_path,
-                headers,
-                has_headers):
+
+
+    def coppy_data_attemptself(self, table_name, schema_name, file_path, columns, has_headers, null_exp):
+        sql = f"""
+            COPY {schema_name}.{table_name} ({",".join(columns)}) 
+            FROM STDIN WITH (FORMAT CSV, HEADER {has_headers}, DELIMITER ',', QUOTE '''', NULL '{null_exp}')
+        """
         if self.cursor:
             try:
                 with open(file_path, 'r') as f:
-                    self.cursor.copy_expert(
-                    sql=f"""
-                        COPY {schema_name}.{table_name} ({",".join(headers)})
-                        FROM STDIN WITH (FORMAT CSV, HEADER {has_headers}, DELIMITER ',')
-                        """,
-                        file=f
-                    )
-                    self.connection.commit()
+                    self.cursor.copy_expert(sql=sql, file=f)
+                self.connection.commit()
+                return True
             except Exception as e:
-                raise e
-       
+                self.connection.rollback()
+            return False
+            
+    def copy_data(self, table_name, schema_name, file_path, columns, has_headers):
+        if self.coppy_data_attemptself(table_name, schema_name, file_path, columns, has_headers, null_exp ='""'):
+            return True
+        if self.coppy_data_attemptself(table_name, schema_name, file_path, columns, has_headers, null_exp =''):
+            return True
 
-    def create_table_text(self, schema_name, table_name, columns):
+        print(f"Ошибка в {table_name}")
+
+        return False
+
+
+    def create_table(self, schema_name, table_name, columns:dict):
         query = f"""
             create table {schema_name}.{table_name}
             (
-            {",".join([f"{c} text" for c in columns])}
+            {",".join([f"{column_name} {column_type}" for column_name, column_type in columns.items()])}
             );
             """
         self.execute_query(query=query)
 
 
-    def bad_source(self, 
+    def add_bad_source(self, 
                     schema_name,
                     bad_source_table_name,
                     table_name,
@@ -132,13 +139,13 @@ class DBHandler:
             error_ddtm
         from temp_{table_name}_errors;
         """
-        query_delete_duplicates = f"""
-        DELETE FROM {schema_name}.{table_name}
-        WHERE {column_name} IN (
-            SELECT {column_name}
-            FROM temp_{table_name}_errors
-        );
-        """
+        # query_delete_duplicates = f"""
+        # DELETE FROM {schema_name}.{table_name}
+        # WHERE {column_name} IN (
+        #     SELECT {column_name}
+        #     FROM temp_{table_name}_errors
+        # );
+        # """
         query_drop_temp_table = f"""
         drop table if exists temp_{table_name}_errors;
         """
@@ -147,24 +154,9 @@ class DBHandler:
             self.execute_query(query_drop_temp_table)
             self.execute_query(query_create_temp_table)
             self.execute_query(query_insert_error)
-            self.execute_query(query_delete_duplicates)
+            # self.execute_query(query_delete_duplicates)
         finally:
             self.execute_query(query_drop_temp_table)
-
-    def change_table_types(self,
-                     schema_name,
-                     table_name,
-                     headers: dict):
-        alters = []
-        for key, val in headers.items():
-            alter = alter_type_change(column_type=val["type"],column_name=key)
-            if alter:
-                alters.append(alter)
-        query = f"""
-            alter table {schema_name}.{table_name}
-            {",\n".join(alters)}
-        """
-        self.execute_query(query=query)
     
 
     def check_data_loss(self, schema_name, table_name):
@@ -196,10 +188,7 @@ class DBHandler:
         """
         data_loaded, data_los = self.fetch_all(q)[0]
 
-        return (data_loaded, data_los)
-
-
-
+        return (data_loaded, data_los)    
 
     def create_scheme(self, schema_name):
         self.execute_query(f"CREATE SCHEMA IF NOT EXISTS {schema_name};")

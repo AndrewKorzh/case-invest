@@ -14,9 +14,9 @@ class StageFormer:
     
     def create_tables(self):
         for table in TABLES_INFO:
-            self.db_handler.create_table_text(schema_name=STAGE_SCHEMA_NAME,
+            self.db_handler.create_table(schema_name=STAGE_SCHEMA_NAME,
                                             table_name=table["table_name"],
-                                            columns=list(table["headers"].keys()))
+                                            columns=table["headers"])
             
     def create_service_tables(self):
         for table in SERVICE_TABLES:
