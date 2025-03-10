@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 import time
 
-from tables_info import TABLES_INFO, ERROR_LOG_TABLE_NAME, BAD_SOURCE_TABLE_NAME, DATA_UPDATE_TABLE_NAME
+from tables_info import TABLES_INFO, ERROR_LOG_TABLE_NAME, BAD_SOURCE_TABLE_NAME, DATA_UPDATE_TABLE_NAME, ROW_COUNT_COMPARISON
 from inspections_register import INSPECTIONS_REGISTER
 from db_handler import DBHandler
 
@@ -33,6 +33,8 @@ def check_file(file_path, required_headers):
     if len(file_headers) != len(required_headers):
         return [file_path, False, False, lines_amt]
     has_headers = file_headers == required_headers
+    if has_headers:
+        lines_amt -= 1
     return [file_path, True, has_headers, lines_amt]
 
 def get_all_files_in_dirrectory(directory_path, extention = "csv"):
@@ -48,6 +50,7 @@ class StageFiller:
         if clean_before_insert:
             self.db_handler.clear_table(schema_name=STAGE_SCHEMA_NAME,table_name=BAD_SOURCE_TABLE_NAME)
             self.db_handler.clear_table(schema_name=STAGE_SCHEMA_NAME,table_name=ERROR_LOG_TABLE_NAME)
+            self.db_handler.clear_table(schema_name=STAGE_SCHEMA_NAME,table_name=ROW_COUNT_COMPARISON)
         for table_info in TABLES_INFO:
             logger.log(f"{table_info["table_name"]}...")
             self.fill_table(table_info, clean_before_insert=clean_before_insert)
@@ -84,7 +87,23 @@ class StageFiller:
                                             bad_source_table_name=BAD_SOURCE_TABLE_NAME,
                                             source=row["file_path"],
                                             length=row["lines_amt"])
+                table.at[index, 'success'] = False
+
+
         logger.log("")
+        print(f"\n\n\n{table}")
+        successed_files_lines = table.loc[table['success'] == True, 'lines_amt'].sum()
+        db_table_length = self.db_handler.count_lines_amount(schema_name=STAGE_SCHEMA_NAME, table_name=table_name)
+        self.db_handler.insert_row_count_comparison(schema_name=STAGE_SCHEMA_NAME,
+                                                    table_name=ROW_COUNT_COMPARISON,
+                                                    source_length=successed_files_lines,
+                                                    db_table_length=db_table_length
+                                                    )
+        print(f"db: {db_table_length}")
+        print(f"files: {successed_files_lines}\n\n\n")
+
+
+        
 
     def data_quality_check(self):
         # Очистка таблиц некоторых (чтобы не скапливалось ничего)

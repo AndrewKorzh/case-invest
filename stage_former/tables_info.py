@@ -133,6 +133,10 @@ ERROR_LOG_TABLE_NAME = "error_log"
 BAD_SOURCE_TABLE_NAME = "bad_source"
 DATA_UPDATE_TABLE_NAME = "data_update"
 LOADED_AND_LOS_TABLE_NAME = "loaded_and_lost_data"
+ROW_COUNT_COMPARISON = "row_count_comparison"
+
+# row_count_comparison
+
 
 SERVICE_TABLES = [
     {
@@ -161,14 +165,29 @@ SERVICE_TABLES = [
         """
     },
     {
-    "table_name":DATA_UPDATE_TABLE_NAME,
+    "table_name":ROW_COUNT_COMPARISON,
     "query": f"""
-            CREATE TABLE IF NOT EXISTS {STAGE_SCHEMA_NAME}.{DATA_UPDATE_TABLE_NAME} (
+            CREATE TABLE IF NOT EXISTS {STAGE_SCHEMA_NAME}.{ROW_COUNT_COMPARISON} (
                 id SERIAL PRIMARY KEY,
-                success boolean,
-                message TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT NOW()
+                table_name TEXT NOT NULL,
+                source_length INTEGER NOT NULL,
+                db_table_length INTEGER NOT NULL,
+                dttm TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
         """
     },
+
 ]
+
+
+    # {
+    # "table_name":DATA_UPDATE_TABLE_NAME,
+    # "query": f"""
+    #         CREATE TABLE IF NOT EXISTS {STAGE_SCHEMA_NAME}.{DATA_UPDATE_TABLE_NAME} (
+    #             id SERIAL PRIMARY KEY,
+    #             success boolean,
+    #             message TEXT NOT NULL,
+    #             created_at TIMESTAMP DEFAULT NOW()
+    #         );
+    #     """
+    # },

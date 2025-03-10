@@ -42,6 +42,14 @@ class DBHandler:
         query = f"TRUNCATE TABLE {schema_name}.{table_name} RESTART IDENTITY CASCADE;"
         self.execute_query(query)
 
+    def count_lines_amount(self, schema_name, table_name):
+        query = f"select count(*) from {schema_name}.{table_name}"
+        result = self.fetch_all(query)
+        if result:
+            return result[0][0]
+        return 0
+
+
     def coppy_data_attempt(self, table_name, schema_name, file_path, columns, has_headers, null_exp):
         sql = f"""
             COPY {schema_name}.{table_name} ({",".join(columns)}) 
@@ -91,7 +99,13 @@ class DBHandler:
             ('{table_name}', '{source}', {length});
         """
         self.execute_query(query=query)
-    
+
+    def insert_row_count_comparison(self, schema_name, table_name, source_length, db_table_length):
+        self.execute_query(f"""
+                INSERT INTO {schema_name}.{table_name} 
+                (table_name, source_length, db_table_length)
+                VALUES ('{table_name}', '{source_length}', {db_table_length});""")
+
     def process_unique(self,
                     schema_name,
                     table_name,
@@ -118,6 +132,9 @@ class DBHandler:
             """
 
         self.execute_query(q)
+
+
+
 
     def process_bound_value(self,
                     schema_name,
