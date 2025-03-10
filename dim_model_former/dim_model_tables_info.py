@@ -12,54 +12,75 @@ ACTIVATION_DEACTIVATION = "activation_deactivation_fact"
 SERVICE_REQUEST_PERIODS_TABLE_NAME = "retention_fact"
 
 DIM_MODEL_TABLES = []
+DIM_MODEL_SCRIPTS = []
 
 
-# CUSTOMERS_TABLE_NAME
+######################__CUSTOMERS_TABLE_NAME__#####################
+
 DIM_MODEL_TABLES += [
     {
-    "table_name":CUSTOMERS_TABLE_NAME,
-    "query": f"""
-        CREATE TABLE {DIM_MODEL_SCHEMA_NAME}.{CUSTOMERS_TABLE_NAME} (
-            customer_dim_id INTEGER,
-            birth_dt DATE,
-            first_nm VARCHAR(255),
-            middle_nm VARCHAR(255),
-            last_nm VARCHAR(255),
-            create_dttm TIMESTAMP,
-            age INTEGER,
-            type_customer VARCHAR(20) DEFAULT 'default'
-        );
+        "table_name": CUSTOMERS_TABLE_NAME,
+        "query": f"""
+            CREATE TABLE {DIM_MODEL_SCHEMA_NAME}.{CUSTOMERS_TABLE_NAME} (
+                customer_dim_id INTEGER,
+                birth_dt DATE,
+                first_nm VARCHAR(255),
+                middle_nm VARCHAR(255),
+                last_nm VARCHAR(255),
+                create_dttm TIMESTAMP,
+                age INTEGER,
+                type_customer VARCHAR(20) DEFAULT 'default'
+            );
         """
-    },
+    }
 ]
 
-DIM_MODEL_SCRIPTS = [
-f"""
-    INSERT INTO {DIM_MODEL_SCHEMA_NAME}.{CUSTOMERS_TABLE_NAME} (
-        customer_dim_id,
-        birth_dt,
-        first_nm,
-        middle_nm,
-        last_nm,
-        create_dttm,
-        age,
-        type_customer
-    )
-    SELECT 
-        row_number() over (order by cc.customer_id) as customer_dim_id,
-        cc.birth_dt as birth_date,
-        cc.first_nm,
-        cc.middle_nm,
-        cc.last_nm,
-        cc.create_dttm,
-        date_part('year', age(cc.birth_dt)) as age,
-        'default' as type_customer
-    FROM {STAGE_SCHEMA_NAME}.cab_customer cc;
-"""
+DIM_MODEL_SCRIPTS += [
+    f"""
+        INSERT INTO {DIM_MODEL_SCHEMA_NAME}.{CUSTOMERS_TABLE_NAME} (
+            customer_dim_id,
+            birth_dt,
+            first_nm,
+            middle_nm,
+            last_nm,
+            create_dttm,
+            age,
+            type_customer
+        )
+        WITH information_invest_account AS (
+            SELECT 
+                a.customer_id, 
+                SUM(ct.transaction_amt) AS sum_invest_account
+            FROM {STAGE_SCHEMA_NAME}.crm_transaction ct 
+            JOIN {STAGE_SCHEMA_NAME}.crm_account_type cat 
+                ON cat.account_type_cd = ct.transaction_type_cd 
+            JOIN {STAGE_SCHEMA_NAME}.crm_account ca 
+                ON ca.account_id = ct.account_id 
+            JOIN {STAGE_SCHEMA_NAME}."application" a 
+                ON ca.application_id = a.application_id 
+            WHERE cat.account_type_nm = 'investacc'
+            GROUP BY a.customer_id  
+        )
+        SELECT 
+            ROW_NUMBER() OVER (ORDER BY cc.customer_id) AS customer_dim_id,
+            cc.birth_dt AS birth_date,
+            cc.first_nm,
+            cc.middle_nm,
+            cc.last_nm,
+            cc.create_dttm,
+            DATE_PART('year', AGE(cc.birth_dt)) AS age,
+            CASE 
+                WHEN iia.sum_invest_account < 100000 THEN 'default' 
+                ELSE 'invest' 
+            END AS type_customer
+        FROM {STAGE_SCHEMA_NAME}.cab_customer cc 
+        LEFT JOIN information_invest_account iia 
+            ON iia.customer_id = cc.customer_id;
+    """
 ]
 
 
-# TRANSACTION_TABLE_NAME
+######################__TRANSACTION_TABLE_NAME__#####################
 DIM_MODEL_TABLES += [
     {
         "table_name": TRANSACTION_TABLE_NAME,
@@ -137,6 +158,10 @@ DIM_MODEL_SCRIPTS += [
     """
 ]
 
+
+
+######################__TRANSACTION_TYPE_TABLE_NAME__#####################
+
 DIM_MODEL_TABLES += [
     {
         "table_name": TRANSACTION_TYPE_TABLE_NAME,
@@ -162,7 +187,9 @@ DIM_MODEL_SCRIPTS += [
     """
 ]
 
-# CALENDAR_TABLE_NAME
+
+######################__CALENDAR_TABLE_NAME__#####################
+
 DIM_MODEL_TABLES += [
     {
         "table_name": CALENDAR_TABLE_NAME,
@@ -211,6 +238,10 @@ DIM_MODEL_SCRIPTS += [
 
 
 
+
+
+######################__ACCOUNTS_TABLE_NAME__#####################
+
 DIM_MODEL_TABLES += [
     {
         "table_name": ACCOUNTS_TABLE_NAME,
@@ -249,6 +280,7 @@ DIM_MODEL_SCRIPTS += [
     """
 ]
 
+######################__ACTIVATION_DEACTIVATION__#####################
 
 DIM_MODEL_TABLES += [
     {
@@ -256,7 +288,7 @@ DIM_MODEL_TABLES += [
         "query": f"""
             CREATE TABLE {DIM_MODEL_SCHEMA_NAME}.{ACTIVATION_DEACTIVATION} (
                 customer_dim_id INTEGER,
-                create_dttm TIMESTAMP,
+                create_dttm_id INTEGER,
                 flag_activation INTEGER,
                 activation_id INTEGER
             );
@@ -268,61 +300,78 @@ DIM_MODEL_SCRIPTS += [
     f"""
         INSERT INTO {DIM_MODEL_SCHEMA_NAME}.{ACTIVATION_DEACTIVATION} (
             customer_dim_id,
-            create_dttm,
+            create_dttm_id,
             flag_activation,
             activation_id
         )
-        WITH service_request_activate_deactivate AS (
-            SELECT  
+        WITH activation_deactivation AS (
+            SELECT 
                 sr.service_request_id, 
                 sr.customer_id, 
                 sr.create_dttm, 
                 CASE 
-                    WHEN srt.service_request_type_nm = 'enable' THEN 1 
                     WHEN srt.service_request_type_nm = 'disable' THEN 0 
+                    ELSE 1 
                 END AS flag_activation
             FROM {STAGE_SCHEMA_NAME}.service_request sr
             JOIN {STAGE_SCHEMA_NAME}.service_request_type srt 
-                ON srt.service_request_type_cd = sr.service_request_type_cd 
-            WHERE srt.service_request_type_nm IN ('enable', 'disable')
+                ON srt.service_request_type_cd = sr.service_request_type_cd
         ),
-        service_request_with_prev_activate_flag AS (
+        activation_deactivation_with_prev AS (
             SELECT *,
                 LAG(flag_activation) OVER (
                     PARTITION BY customer_id ORDER BY create_dttm
                 ) AS prev_flag_activation
-            FROM service_request_activate_deactivate
+            FROM activation_deactivation
         ),
-        service_request_filter_data AS (
-            SELECT
-                service_request_id,
-                customer_id,
-                create_dttm,
-                flag_activation
-            FROM service_request_with_prev_activate_flag
+        filter_data_duplicate AS (
+            SELECT *
+            FROM activation_deactivation_with_prev
             WHERE flag_activation <> prev_flag_activation 
-                OR (prev_flag_activation IS NULL AND flag_activation = 1) 
-                OR NOT (prev_flag_activation IS NULL AND flag_activation = 0)
+                OR prev_flag_activation IS NULL
+        ),
+        filter_data_first_deactivate AS (
+            SELECT *
+            FROM filter_data_duplicate
+            WHERE NOT (prev_flag_activation IS NULL AND flag_activation = 0)
         ),
         customer_dim AS (
             SELECT 
                 ROW_NUMBER() OVER (ORDER BY cc.customer_id) AS customer_dim_id,
                 cc.customer_id AS b_customer_id
             FROM {STAGE_SCHEMA_NAME}.cab_customer cc
+        ),
+        gen_calendar AS (
+            SELECT 
+                GENERATE_SERIES(
+                    DATE '2018-01-01',  -- Начальная дата
+                    DATE '2099-12-31',  -- Конечная дата
+                    INTERVAL '1 day'    -- Шаг (1 день)
+                ) AS calendar_date
+        ),
+        calendar_row_number AS (
+            SELECT 
+                ROW_NUMBER() OVER (ORDER BY calendar_date) AS date_id, 
+                calendar_date AS date
+            FROM gen_calendar
         )
         SELECT 
             cd.customer_dim_id, 
-            srf.create_dttm, 
-            srf.flag_activation, 
-            srf.service_request_id AS activation_id
-        FROM service_request_filter_data srf
+            crn.date_id AS create_dttm_id, 
+            fdf.flag_activation, 
+            fdf.service_request_id AS activation_id
+        FROM filter_data_first_deactivate fdf
         JOIN customer_dim cd 
-            ON srf.customer_id = cd.b_customer_id
-        ORDER BY srf.customer_id, srf.create_dttm;
+            ON fdf.customer_id = cd.b_customer_id
+        JOIN calendar_row_number crn 
+            ON crn.date = fdf.create_dttm
+        ORDER BY fdf.customer_id, fdf.create_dttm;
     """
 ]
 
 
+
+######################__SERVICE_REQUEST_PERIODS_TABLE_NAME__#####################
 
 DIM_MODEL_TABLES += [
     {
@@ -330,8 +379,8 @@ DIM_MODEL_TABLES += [
         "query": f"""
             CREATE TABLE {DIM_MODEL_SCHEMA_NAME}.{SERVICE_REQUEST_PERIODS_TABLE_NAME} (
                 customer_dim_id INTEGER,
-                enable_dttm_id TIMESTAMP,
-                disable_dttm_id TIMESTAMP,
+                enable_dttm_id INTEGER,
+                disable_dttm_id INTEGER,
                 service_request_enable_id INTEGER,
                 service_request_disable_id INTEGER,
                 number_days INTEGER,
@@ -352,46 +401,40 @@ DIM_MODEL_SCRIPTS += [
             number_days,
             number_months
         )
-        WITH service_request_with_type AS (
+        WITH activation_deactivation AS (
             SELECT 
                 sr.service_request_id, 
                 sr.customer_id, 
-                srt.service_request_type_nm, 
-                sr.service_request_status_cd, 
-                sr.create_dttm 
-            FROM {STAGE_SCHEMA_NAME}.service_request sr 
+                sr.create_dttm, 
+                CASE 
+                    WHEN srt.service_request_type_nm = 'disable' THEN 0 
+                    ELSE 1 
+                END AS flag_activation,
+                srt.service_request_type_nm
+            FROM {STAGE_SCHEMA_NAME}.service_request sr
             JOIN {STAGE_SCHEMA_NAME}.service_request_type srt 
-                ON sr.service_request_type_cd = srt.service_request_type_cd
+                ON srt.service_request_type_cd = sr.service_request_type_cd
         ),
-        service_request_with_type_activate_deactivate AS (
-            SELECT *
-            FROM service_request_with_type
-            WHERE service_request_type_nm IN ('enable', 'disable')
-        ),
-        service_request_with_prev_activate_flag AS (
-            SELECT *, 
-                LAG(service_request_type_nm) OVER (
+        activation_deactivation_with_prev AS (
+            SELECT *,
+                LAG(flag_activation) OVER (
                     PARTITION BY customer_id ORDER BY create_dttm
-                ) AS prev_type
-            FROM service_request_with_type_activate_deactivate
+                ) AS prev_flag_activation
+            FROM activation_deactivation
         ),
-        service_request_filtered_data AS (
-            SELECT 
-                service_request_id, 
-                customer_id, 
-                service_request_type_nm, 
-                service_request_status_cd, 
-                create_dttm 
-            FROM service_request_with_prev_activate_flag
-            WHERE service_request_type_nm <> prev_type OR prev_type IS NULL
+        filter_data_duplicate AS (
+            SELECT *
+            FROM activation_deactivation_with_prev
+            WHERE flag_activation <> prev_flag_activation 
+                OR prev_flag_activation IS NULL
         ),
-        service_request_periods_lead AS (
+        activation_periods AS (
             SELECT
                 customer_id,
-                create_dttm AS enable_dttm_id,
+                create_dttm AS enable_dttm,
                 LEAD(create_dttm) OVER (
                     PARTITION BY customer_id ORDER BY create_dttm
-                ) AS disable_dttm_id,
+                ) AS disable_dttm,
                 service_request_id AS service_request_enable_id, 
                 LEAD(service_request_id) OVER (
                     PARTITION BY customer_id ORDER BY create_dttm
@@ -399,40 +442,71 @@ DIM_MODEL_SCRIPTS += [
                 service_request_type_nm AS enable_type,
                 LEAD(service_request_type_nm) OVER (
                     PARTITION BY customer_id ORDER BY create_dttm
-                ) AS disable_type
-            FROM service_request_filtered_data
+                ) AS disable_type,
+                flag_activation
+            FROM filter_data_duplicate
+        ),
+        activation_periods_filter AS (
+            SELECT *
+            FROM activation_periods
+            WHERE flag_activation = 1
         ),
         customer_dim AS (
             SELECT 
                 ROW_NUMBER() OVER (ORDER BY cc.customer_id) AS customer_dim_id,
                 cc.customer_id AS b_customer_id
             FROM {STAGE_SCHEMA_NAME}.cab_customer cc
+        ),
+        gen_calendar AS (
+            SELECT 
+                GENERATE_SERIES(
+                    DATE '2018-01-01',  -- Начальная дата
+                    DATE '2099-12-31',  -- Конечная дата
+                    INTERVAL '1 day'    -- Шаг (1 день)
+                ) AS calendar_date
+        ),
+        calendar_row_number AS (
+            SELECT 
+                ROW_NUMBER() OVER (ORDER BY calendar_date) AS date_id, 
+                calendar_date AS date
+            FROM gen_calendar
         )
         SELECT 
             cd.customer_dim_id, 
-            spr.enable_dttm_id,
-            spr.disable_dttm_id,
-            spr.service_request_enable_id,
-            spr.service_request_disable_id,
+            cr1.date_id AS enable_dttm_id,
+            cr2.date_id AS disable_dttm_id,
+            apf.service_request_enable_id,
+            apf.service_request_disable_id,
             EXTRACT(DAY FROM (
                 CASE 
-                    WHEN spr.disable_dttm_id IS NULL 
+                    WHEN apf.disable_dttm IS NULL 
                     THEN '2021-04-01'::DATE 
-                    ELSE spr.disable_dttm_id 
-                END - spr.enable_dttm_id
+                    ELSE apf.disable_dttm 
+                END - apf.enable_dttm
             )) AS number_days,
             EXTRACT(MONTH FROM AGE(
                 CASE 
-                    WHEN spr.disable_dttm_id IS NULL 
+                    WHEN apf.disable_dttm IS NULL 
                     THEN '2021-04-01'::DATE 
-                    ELSE spr.disable_dttm_id 
+                    ELSE apf.disable_dttm 
                 END, 
-                spr.enable_dttm_id
+                apf.enable_dttm
             )) AS number_months
-        FROM service_request_periods_lead spr
+        FROM activation_periods_filter apf
         JOIN customer_dim cd 
-            ON spr.customer_id = cd.b_customer_id
-        WHERE spr.enable_type = 'enable'
-        ORDER BY cd.customer_dim_id, spr.enable_dttm_id;
+            ON apf.customer_id = cd.b_customer_id
+        JOIN calendar_row_number cr1 
+            ON cr1.date = apf.enable_dttm
+        JOIN calendar_row_number cr2 
+            ON cr2.date = (
+                CASE 
+                    WHEN apf.disable_dttm IS NULL 
+                    THEN '2099-12-30'::DATE 
+                    ELSE apf.disable_dttm 
+                END
+            )
+        WHERE apf.flag_activation = 1
+        ORDER BY cd.customer_dim_id, apf.enable_dttm;
     """
 ]
+
