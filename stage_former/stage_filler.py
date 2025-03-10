@@ -5,9 +5,9 @@ from pathlib import Path
 import pandas as pd
 import time
 
-from tables_info import TABLES_INFO, ERROR_LOG_TABLE_NAME, BAD_SOURCE_TABLE_NAME, DATA_UPDATE_TABLE_NAME, ROW_COUNT_COMPARISON
+from stage_former.stage_tables_info import TABLES_INFO, ERROR_LOG_TABLE_NAME, BAD_SOURCE_TABLE_NAME, DATA_UPDATE_TABLE_NAME, ROW_COUNT_COMPARISON
 from inspections_register import INSPECTIONS_REGISTER
-from db_handler import DBHandler
+from stage_former.stage_db_handler import DBHandler
 
 sys.path.append(str(Path(__file__).parent.parent))
 from config import ARCHIVE_PATH, STAGE_SCHEMA_NAME
@@ -95,7 +95,8 @@ class StageFiller:
         successed_files_lines = table.loc[table['success'] == True, 'lines_amt'].sum()
         db_table_length = self.db_handler.count_lines_amount(schema_name=STAGE_SCHEMA_NAME, table_name=table_name)
         self.db_handler.insert_row_count_comparison(schema_name=STAGE_SCHEMA_NAME,
-                                                    table_name=ROW_COUNT_COMPARISON,
+                                                    row_count_comparison_table_name=ROW_COUNT_COMPARISON,
+                                                    table_name = table_name,
                                                     source_length=successed_files_lines,
                                                     db_table_length=db_table_length
                                                     )

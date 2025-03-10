@@ -100,9 +100,9 @@ class DBHandler:
         """
         self.execute_query(query=query)
 
-    def insert_row_count_comparison(self, schema_name, table_name, source_length, db_table_length):
+    def insert_row_count_comparison(self, schema_name, row_count_comparison_table_name, table_name, source_length, db_table_length):
         self.execute_query(f"""
-                INSERT INTO {schema_name}.{table_name} 
+                INSERT INTO {schema_name}.{row_count_comparison_table_name} 
                 (table_name, source_length, db_table_length)
                 VALUES ('{table_name}', '{source_length}', {db_table_length});""")
 
