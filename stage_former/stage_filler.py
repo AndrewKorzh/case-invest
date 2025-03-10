@@ -5,9 +5,9 @@ from pathlib import Path
 import pandas as pd
 import time
 
-from stage_former.stage_tables_info import TABLES_INFO, ERROR_LOG_TABLE_NAME, BAD_SOURCE_TABLE_NAME, DATA_UPDATE_TABLE_NAME, ROW_COUNT_COMPARISON
+from stage_tables_info import TABLES_INFO, ERROR_LOG_TABLE_NAME, BAD_SOURCE_TABLE_NAME, DATA_UPDATE_TABLE_NAME, ROW_COUNT_COMPARISON
 from inspections_register import INSPECTIONS_REGISTER
-from stage_former.stage_db_handler import DBHandler
+from stage_db_handler import DBHandler
 
 sys.path.append(str(Path(__file__).parent.parent))
 from config import ARCHIVE_PATH, STAGE_SCHEMA_NAME

@@ -1,8 +1,8 @@
 import sys
 from pathlib import Path
 
-from stage_former.stage_tables_info import TABLES_INFO, SERVICE_TABLES
-from stage_former.stage_db_handler import DBHandler
+from stage_tables_info import TABLES_INFO, SERVICE_TABLES
+from stage_db_handler import DBHandler
 
 sys.path.append(str(Path(__file__).parent.parent))
 from config import STAGE_SCHEMA_NAME
