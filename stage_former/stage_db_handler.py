@@ -20,15 +20,24 @@ class DBHandler:
         self.cursor = self.connection.cursor()
 
     def execute_query(self, query, params=None):
-        try:
-            self.cursor.execute(query, params)
-            self.connection.commit()
-        except Exception as e:
-            # self.connection.rollback()
-            print(f"Ошибка выполнения SQL: {e}")
-            return False
+
+        self.cursor.execute(query, params)
+        self.connection.commit()
+
         return True
 
+
+
+    # def execute_query(self, query, params=None):
+    #     try:
+    #         self.cursor.execute(query, params)
+    #         self.connection.commit()
+    #     except Exception as e:
+    #         # self.connection.rollback()
+    #         print(f"Ошибка выполнения SQL: {e}")
+    #         return False
+    #     return True
+    
 
     def fetch_all(self, query, params=None):
         if self.cursor:
