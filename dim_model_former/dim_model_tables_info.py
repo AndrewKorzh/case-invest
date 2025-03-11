@@ -135,8 +135,7 @@ INSERT INTO {DIM_MODEL_SCHEMA_NAME}.{REVENUE_FACT} (
     transaction_type_dim_id,
     commision_ammount,
     lost_profit_ammount
-) select * from (
-select 
+) select 
 	row_number() over (order by 1) as revenue_id, 
 	*
 from (
@@ -287,7 +286,8 @@ f.transaction_type_cd as transaction_type_dim_id,
 (tail_limit - (transaction_amt % tail_limit)) * 0.01 as lost_profit_ammount
 from transactions_with_tail_limit f
 join calendar_row_number on date = f.transaction_dttm
-join customer_account_dim cad on cad.b_account_id = f.account_id)) as t)
+join customer_account_dim cad on cad.b_account_id = f.account_id)) as t
+
 """
 ]
 print(DIM_MODEL_SCRIPTS[len(DIM_MODEL_SCRIPTS)-1])
@@ -381,7 +381,7 @@ DIM_MODEL_TABLES += [
         "query": f"""
         CREATE TABLE {DIM_MODEL_SCHEMA_NAME}.{ACCOUNT_DIM} (
             account_dim_id INTEGER,
-            account_create_date DATE,
+            acccount_create_date DATE,
             account_type VARCHAR(255),
             account_id INTEGER
         );
@@ -393,13 +393,13 @@ DIM_MODEL_SCRIPTS += [
     f"""
     INSERT INTO {DIM_MODEL_SCHEMA_NAME}.{ACCOUNT_DIM} (
         account_dim_id,
-        account_create_date,
+        acccount_create_date,
         account_type,
         account_id
     )
     SELECT 
         ROW_NUMBER() OVER (ORDER BY ca.account_id) AS account_dim_id,
-        ca.acccount_create_dt AS account_create_date,
+        ca.acccount_create_dt AS acccount_create_date,
         cat.account_type_nm AS account_type,
         ca.account_id AS account_id
     FROM {STAGE_SCHEMA_NAME}.crm_account ca
