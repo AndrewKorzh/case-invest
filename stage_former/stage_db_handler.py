@@ -140,6 +140,7 @@ class DBHandler:
             ) d ON t.{table_primary_key} = d.{table_primary_key};
             """
 
+        print(q)
         self.execute_query(q)
 
 
@@ -167,6 +168,7 @@ class DBHandler:
                 WHERE t.{column_name} {sign} {value};
             """
 
+        print(q)
         self.execute_query(q)
     
 
@@ -197,6 +199,7 @@ class DBHandler:
         LEFT JOIN bad_source_loss bs ON true
         LEFT JOIN error_log_loss el ON true;
         """
+        print(q)
         data_loaded, data_los = self.fetch_all(q)[0]
 
         return (data_loaded, data_los)    

@@ -111,80 +111,186 @@ DIM_MODEL_TABLES += [
     {
         "table_name": REVENUE_FACT,
         "query": f"""
-            CREATE TABLE {DIM_MODEL_SCHEMA_NAME}.{REVENUE_FACT} (
-                id_transaction INTEGER,
-                customer_dim_id INTEGER,
-                account_dim_id INTEGER,
-                transaction_dttm TIMESTAMP,
-                transaction_type_dim_id INTEGER,
-                commision_ammount NUMERIC(10,2),
-                lost_profit_ammount NUMERIC(10,2) DEFAULT 0
-            );
+        CREATE TABLE {DIM_MODEL_SCHEMA_NAME}.{REVENUE_FACT} (
+            revenue_id INTEGER,
+            transaction_id INTEGER,
+            customer_dim_id INTEGER,
+            account_dim_id INTEGER,
+            transaction_dttm_id INTEGER,
+            transaction_type_dim_id INTEGER,
+            commision_ammount NUMERIC(10, 2),
+            lost_profit_ammount NUMERIC(10, 2)
+        );
         """
     }
 ]
-
 DIM_MODEL_SCRIPTS += [
     f"""
-        INSERT INTO {DIM_MODEL_SCHEMA_NAME}.{REVENUE_FACT} (
-            id_transaction,
-            customer_dim_id,
-            account_dim_id,
-            transaction_dttm,
-            transaction_type_dim_id,
-            commision_ammount,
-            lost_profit_ammount
-        )
-        WITH account_dim AS (
-            SELECT 
-                row_number() OVER (ORDER BY ca.account_id) AS account_dim_id,
-                ca.account_id AS b_account_id,
-                ca.application_id
-            FROM {STAGE_SCHEMA_NAME}.crm_account ca
-        ),
-        customer_dim AS (
-            SELECT 
-                row_number() OVER (ORDER BY cc.customer_id) AS customer_dim_id,
-                cc.customer_id AS b_customer_id
-            FROM {STAGE_SCHEMA_NAME}.cab_customer cc
-        ),
-        customer_dim_with_appeal AS (
-            SELECT 
-                cdd.customer_dim_id, 
-                cdd.b_customer_id, 
-                app.application_id
-            FROM customer_dim cdd
-            JOIN {STAGE_SCHEMA_NAME}."application" app 
-                ON app.customer_id = cdd.b_customer_id
-        ),
-        customer_account_dim AS (
-            SELECT 
-                ad.account_dim_id, 
-                cda.customer_dim_id, 
-                ad.b_account_id
-            FROM customer_dim_with_appeal cda
-            JOIN account_dim ad 
-                ON ad.application_id = cda.application_id
-        )
-        SELECT 
-            ct.transaction_id AS id_transaction, 
-            cad.customer_dim_id, 
-            cad.account_dim_id, 
-            ct.transaction_dttm, 
-            ct.transaction_type_cd AS transaction_type_dim_id, 
-            ct.transaction_amt * 0.01 AS commision_ammount, 
-            0 AS lost_profit_ammount
-        FROM {STAGE_SCHEMA_NAME}.crm_transaction ct
-        JOIN {STAGE_SCHEMA_NAME}.crm_transaction_type ctt 
-            ON ct.transaction_type_cd = ctt.transaction_type_cd
-        JOIN customer_account_dim cad 
-            ON cad.b_account_id = ct.account_id
-        WHERE ctt.transaction_type_nm = 'kopylka' 
-            AND ct.transaction_amt > 0;
-    """
+INSERT INTO {DIM_MODEL_SCHEMA_NAME}.{REVENUE_FACT} (
+    revenue_id,
+    transaction_id,
+    customer_dim_id,
+    account_dim_id,
+    transaction_dttm_id,
+    transaction_type_dim_id,
+    commision_ammount,
+    lost_profit_ammount
+) select * from (
+select 
+	row_number() over (order by 1) as revenue_id, 
+	*
+from (
+(with account_dim as (
+	select row_number() over (order by ca.account_id) as account_dim_id,
+	ca.account_id as b_account_id,
+	ca.application_id
+	from {STAGE_SCHEMA_NAME}.crm_account ca 
+),
+customer_dim as (
+	select row_number() over (order by cc.customer_id) as customer_dim_id,
+	cc.customer_id as b_customer_id
+	from {STAGE_SCHEMA_NAME}.cab_customer cc 
+),
+customer_dim_with_appeal as (
+	select customer_dim_id, b_customer_id, app.application_id
+	from customer_dim cdd
+	join {STAGE_SCHEMA_NAME}."application" app on app.customer_id = cdd.b_customer_id
+),
+customer_account_dim as (
+	select account_dim_id, customer_dim_id, b_account_id
+	from customer_dim_with_appeal cda
+	join account_dim ad on ad.application_id = cda.application_id
+),
+gen_calendar as (select 
+    generate_series(
+        DATE '2018-01-01',  -- Начальная дата
+        DATE '2099-12-31',  -- Конечная дата
+        INTERVAL '1 day'    -- Шаг (1 день)
+    ) as calendar_date
+ ),
+ calendar_row_number as (
+	select 
+	row_number() over (order by calendar_date) as date_id, 
+ 	calendar_date as date
+ 	from gen_calendar
+)
+select 
+ct.transaction_id as transaction_id, 
+cad.customer_dim_id, 
+cad.account_dim_id, 
+date_id as transaction_dttm_id, 
+ct.transaction_type_cd as transaction_type_dim_id, 
+abs(ct.transaction_amt) * 0.01 as commision_ammount, 
+0 as lost_profit_ammount
+from {STAGE_SCHEMA_NAME}.crm_transaction ct 
+join {STAGE_SCHEMA_NAME}.crm_transaction_type ctt on ct.transaction_type_cd = ctt.transaction_type_cd
+join customer_account_dim cad on cad.b_account_id = ct.account_id 
+join calendar_row_number on date = ct.transaction_dttm
+where ctt.transaction_type_nm = 'kopylka' and ct.transaction_amt < 0)
+union 
+(with avg_tail_limit as 
+	(select 
+	round(avg(sr.tail_limit)) as avg_tl
+	from {STAGE_SCHEMA_NAME}.service_request sr 
+	join {STAGE_SCHEMA_NAME}.crm_transaction_type ctt on ctt.transaction_type_cd = sr.service_request_type_cd 
+	where ctt.transaction_type_nm <> 'disable'),
+data_with_row_nm as (
+	select 
+	sr.customer_id,
+	sr.tail_limit,
+	sr.create_dttm,
+	row_number() over (partition by sr.customer_id order by sr.create_dttm desc) as rw
+	from {STAGE_SCHEMA_NAME}.service_request sr
+	join {STAGE_SCHEMA_NAME}.service_request_type srt on srt.service_request_type_cd = sr.service_request_type_cd 
+	where srt.service_request_type_nm <> 'disable'
+),
+filter_data as (
+	select *
+	from data_with_row_nm
+	where rw = 1
+),
+customer_tail_limit_with_avg as (select 
+	cc.customer_id,
+	fd.tail_limit,
+	(select * from avg_tail_limit) as avg_tl
+	from {STAGE_SCHEMA_NAME}.cab_customer cc
+	left join filter_data fd on cc.customer_id = fd.customer_id
+),
+customer_tail_limit as (
+	select customer_id, coalesce(tail_limit, avg_tl) as tail_limit
+	from customer_tail_limit_with_avg
+),
+account_tail_limit as (
+	select ct.customer_id,
+	ca.account_id,
+	tail_limit
+	from {STAGE_SCHEMA_NAME}.crm_account ca 
+	join {STAGE_SCHEMA_NAME}."application" a on a.application_id = ca.application_id
+	join customer_tail_limit ct on a.customer_id = ct.customer_id
+),
+transactions_with_count_orig_id as (
+	select *,
+	count(orig_id) over (partition by orig_id) as count_orig_id
+	from {STAGE_SCHEMA_NAME}.crm_transaction ct
+),
+filter_transactions as (
+	select *
+	from transactions_with_count_orig_id
+	where count_orig_id = 1
+), 
+transactions_with_tail_limit as (
+	select ft.*, tail_limit
+	from filter_transactions ft
+	join account_tail_limit atl on atl.account_id = ft.account_id
+),
+account_dim as (
+	select row_number() over (order by ca.account_id) as account_dim_id,
+	ca.account_id as b_account_id,
+	ca.application_id
+	from {STAGE_SCHEMA_NAME}.crm_account ca 
+),
+customer_dim as (
+	select row_number() over (order by cc.customer_id) as customer_dim_id,
+	cc.customer_id as b_customer_id
+	from {STAGE_SCHEMA_NAME}.cab_customer cc 
+),
+customer_dim_with_appeal as (
+	select customer_dim_id, b_customer_id, app.application_id
+	from customer_dim cdd
+	join {STAGE_SCHEMA_NAME}."application" app on app.customer_id = cdd.b_customer_id
+),
+customer_account_dim as (
+	select account_dim_id, customer_dim_id, b_account_id
+	from customer_dim_with_appeal cda
+	join account_dim ad on ad.application_id = cda.application_id
+),
+gen_calendar as (select 
+    generate_series(
+        DATE '2018-01-01',  -- Начальная дата
+        DATE '2099-12-31',  -- Конечная дата
+        INTERVAL '1 day'    -- Шаг (1 день)
+    ) as calendar_date
+ ),
+ calendar_row_number as (
+	select 
+	row_number() over (order by calendar_date) as date_id, 
+ 	calendar_date as date
+ 	from gen_calendar
+)
+select 
+f.transaction_id as transaction_id, 
+cad.customer_dim_id, 
+cad.account_dim_id, 
+date_id as transaction_dttm_id, 
+f.transaction_type_cd as transaction_type_dim_id, 
+0 as commision_ammount, 
+(tail_limit - (transaction_amt % tail_limit)) * 0.01 as lost_profit_ammount
+from transactions_with_tail_limit f
+join calendar_row_number on date = f.transaction_dttm
+join customer_account_dim cad on cad.b_account_id = f.account_id)) as t)
+"""
 ]
-
-
+print(DIM_MODEL_SCRIPTS[len(DIM_MODEL_SCRIPTS)-1])
 
 ######################__TRANSACTION_TYPE_TABLE_NAME__#####################
 
