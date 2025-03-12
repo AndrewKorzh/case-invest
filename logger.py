@@ -1,3 +1,5 @@
+import time
+
 class LogLevel:
     DEBUG = 1
     INFO = 2
@@ -21,7 +23,8 @@ class Logger:
             sys.stdout.write("\r\033[K")
             end = ""
 
-        sys.stdout.write(f"{message}{end}")
+        current_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+        sys.stdout.write(f"[{current_time}] {message}{end}")
         sys.stdout.flush()
 
 logger = Logger()

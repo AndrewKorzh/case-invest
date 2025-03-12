@@ -134,6 +134,7 @@ BAD_SOURCE_TABLE_NAME = "bad_source"
 DATA_UPDATE_TABLE_NAME = "data_update"
 LOADED_AND_LOS_TABLE_NAME = "loaded_and_lost_data"
 ROW_COUNT_COMPARISON = "row_count_comparison"
+FATAL_ERROR_TABLE_NAME = "fatal_error"
 
 # row_count_comparison
 
@@ -172,6 +173,16 @@ SERVICE_TABLES = [
                 table_name TEXT NOT NULL,
                 source_length INTEGER NOT NULL,
                 db_table_length INTEGER NOT NULL,
+                dttm TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+        """
+    },
+    {
+    "table_name":FATAL_ERROR_TABLE_NAME,
+    "query": f"""
+            CREATE TABLE IF NOT EXISTS {STAGE_SCHEMA_NAME}.{FATAL_ERROR_TABLE_NAME} (
+                id SERIAL PRIMARY KEY,
+                message TEXT,
                 dttm TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
         """

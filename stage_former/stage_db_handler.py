@@ -109,6 +109,20 @@ class DBHandler:
         """
         self.execute_query(query=query)
 
+    def add_fatal_error(self, 
+                    schema_name,
+                    fatal_error_table_name,
+                    message,
+                   ):
+        
+        query = f"""
+            INSERT INTO {schema_name}.{fatal_error_table_name} 
+            (message)
+            VALUES 
+            ('{message}');
+        """
+        self.execute_query(query=query)
+
     def insert_row_count_comparison(self, schema_name, row_count_comparison_table_name, table_name, source_length, db_table_length):
         self.execute_query(f"""
                 INSERT INTO {schema_name}.{row_count_comparison_table_name} 
@@ -140,6 +154,31 @@ class DBHandler:
             ) d ON t.{table_primary_key} = d.{table_primary_key};
             """
         self.execute_query(q)
+
+    def bad_source_count(self,schema_name, bad_source_table_name):
+        q = f"""
+            select count(*) from {schema_name}.{bad_source_table_name} bs
+        """
+        res = self.fetch_all(q)
+        return res[0][0]
+    
+    def row_count_comparison(self, schema_name, row_count_comparison_table_name):
+        q = f"""
+        select rcc.table_name,
+        rcc.source_length,
+        rcc.db_table_length 
+                from {schema_name}.{row_count_comparison_table_name} rcc 
+        """
+        res = self.fetch_all(q)
+        return res
+    
+    def error_count(self, schema_name, error_log_table_name):
+        q = f"""
+        select el.table_name, count(*) from {schema_name}.{error_log_table_name} el
+        group by el.table_name
+        """
+        res = self.fetch_all(q)
+        return res
 
 
 
