@@ -7,7 +7,7 @@ class LogLevel:
 
 import sys
 
-LOGGER_MIN_LEVEL = LogLevel.INFO
+LOGGER_MIN_LEVEL = LogLevel.DEBUG
 
 class Logger:
     def __init__(self):

@@ -37,4 +37,3 @@ class DimModelFormer:
 if __name__ == "__main__":
     sf = DimModelFormer()
     sf.run()
-    # sf.db_handler.drop_scheme(schema_name=DIM_MODEL_SCHEMA_NAME)

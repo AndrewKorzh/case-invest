@@ -106,15 +106,12 @@ class StageFiller:
 
         
 
-    def data_quality_tables_creation(self, clear = True):
+    def data_quality_tables_creation(self):
         # Очистка таблиц некоторых (чтобы не скапливалось ничего)
         # Заполнение данными 
         # Расчёт 
         # Отедельно расчёт показателей
 
-        if clear:
-            for table in SERVICE_TABLES:
-                self.db_handler.clear_table(schema_name=STAGE_SCHEMA_NAME,table_name=table["table_name"])
         for table_inspections in INSPECTIONS_REGISTER:
             logger.log(f"process {table_inspections["table_name"]}...", level=LogLevel.INFO)
             self.process_table(table_inspections)
@@ -172,9 +169,9 @@ class StageFiller:
         elapsed_time = time.perf_counter() - start_time
         logger.log(f"Время, ушедшее на заполнение таблиц: {elapsed_time:.2f} секунд", level=LogLevel.INFO)
 
-    def run_data_quality_tables_creation(self, clear = True):
+    def run_data_quality_tables_creation(self):
         start_time = time.perf_counter()
-        self.data_quality_tables_creation(clear = clear)
+        self.data_quality_tables_creation()
         elapsed_time = time.perf_counter() - start_time
         logger.log(f"Время, ушедшее на обработку таблиц: {elapsed_time:.2f} секунд", level=LogLevel.INFO)
 

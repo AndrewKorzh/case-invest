@@ -12,7 +12,7 @@ stage_filler = StageFiller()
 
 stage_filler.run_fill_all()
 
-stage_filler.run_data_quality_tables_creation()
+stage_filler.run_data_quality_tables_creation() # Отдельно не запускается будет только error log
 
 
 # Тут должна быть проверка данных
