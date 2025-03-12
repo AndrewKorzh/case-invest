@@ -1,33 +1,3 @@
-CHECK_REGISTRY = [
-       {
-        "table_name": "product_type",
-        "primary_key": "product_type_cd",
-        "check": [
-            {"type":"DUPLICATE",
-            "column":"product_type_cd"}
-        ]
-    }, 
-]
-
-    # Проверка проверок 
-    # {
-    #     "table_name": "service_request",
-    #     "primary_key": "service_request_id",
-    #     "inspections": [
-    #         {"type":"MAXIMUM_VALUE_EXCEEDED",
-    #         "column":"tail_limit",
-    #         "value": 299}
-    #     ]
-    # },
-    #     {
-    #     "table_name": "service_request",
-    #     "primary_key": "service_request_id",
-    #     "inspections": [
-    #         {"type":"BELOW_MINIMUM_THRESHOLD",
-    #         "column":"tail_limit",
-    #         "value": 30}
-    #     ]
-    # },
 INSPECTIONS_REGISTER = [
     # Норм проверки
     {
@@ -144,3 +114,25 @@ INSPECTIONS_REGISTER = [
         ]
     }
 ]
+
+
+
+    # Проверка проверок 
+    # {
+    #     "table_name": "service_request",
+    #     "primary_key": "service_request_id",
+    #     "inspections": [
+    #         {"type":"MAXIMUM_VALUE_EXCEEDED",
+    #         "column":"tail_limit",
+    #         "value": 299}
+    #     ]
+    # },
+    #     {
+    #     "table_name": "service_request",
+    #     "primary_key": "service_request_id",
+    #     "inspections": [
+    #         {"type":"BELOW_MINIMUM_THRESHOLD",
+    #         "column":"tail_limit",
+    #         "value": 30}
+    #     ]
+    # },

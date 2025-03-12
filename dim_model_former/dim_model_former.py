@@ -14,14 +14,21 @@ class DimModelFormer:
         self.db_handler = DBHandler()
        
     def create_tables(self):
-        for table in DIM_MODEL_TABLES:
-            logger.log(f"{table["table_name"]} creation...")
-            self.db_handler.execute_query(query = table["query"])
+        for key, val in DIM_MODEL_TABLES.items():
+            logger.log(f"{key} creation...")
+            self.db_handler.execute_query(query = val)
+
+    def delete_tables(self, names):
+        for name in names:
+            logger.log(f"delete {name}")
+            sf.db_handler.delete_table(schema_name=DIM_MODEL_SCHEMA_NAME, table_name=name)
+        return
 
 
 
 if __name__ == "__main__":
     sf = DimModelFormer()
-    sf.db_handler.drop_scheme(schema_name=DIM_MODEL_SCHEMA_NAME)
+    # sf.db_handler.drop_scheme(schema_name=DIM_MODEL_SCHEMA_NAME)
+    sf.delete_tables(names=list(DIM_MODEL_TABLES.keys()))
     sf.db_handler.create_scheme(schema_name=DIM_MODEL_SCHEMA_NAME)
     sf.create_tables()

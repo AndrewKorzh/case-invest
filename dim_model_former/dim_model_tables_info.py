@@ -11,16 +11,13 @@ ACCOUNT_DIM = "account_dim"
 ACTIVATION_DEACTIVATION_FACT = "activation_deactivation_fact"
 RETENTION_FACT = "retention_fact"
 
-DIM_MODEL_TABLES = []
-DIM_MODEL_SCRIPTS = []
+DIM_MODEL_TABLES = {}
+DIM_MODEL_SCRIPTS = {}
 
 
-######################__CUSTOMERS_TABLE_NAME__#####################
+###################### CUSTOMERS_DIM #####################
 
-DIM_MODEL_TABLES += [
-    {
-        "table_name": CUSTOMERS_DIM,
-        "query": f"""
+DIM_MODEL_TABLES[CUSTOMERS_DIM] = f"""
         CREATE TABLE {DIM_MODEL_SCHEMA_NAME}.{CUSTOMERS_DIM} (
             customer_dim_id INTEGER,
             birth_date DATE,
@@ -34,10 +31,9 @@ DIM_MODEL_TABLES += [
             source_customer_id INTEGER
         );
         """
-    }
-]
-DIM_MODEL_SCRIPTS += [
-    f"""
+    
+
+DIM_MODEL_SCRIPTS[CUSTOMERS_DIM] = f"""
     INSERT INTO {DIM_MODEL_SCHEMA_NAME}.{CUSTOMERS_DIM} (
         customer_dim_id,
         birth_date,
@@ -103,14 +99,10 @@ DIM_MODEL_SCRIPTS += [
     LEFT JOIN data fd 
         ON fd.customer_id = cc.customer_id;
     """
-]
 
 
-######################__TRANSACTION_TABLE_NAME__#####################
-DIM_MODEL_TABLES += [
-    {
-        "table_name": REVENUE_FACT,
-        "query": f"""
+###################### REVENUE_FACT #####################
+DIM_MODEL_TABLES[REVENUE_FACT] = f"""
         CREATE TABLE {DIM_MODEL_SCHEMA_NAME}.{REVENUE_FACT} (
             revenue_id INTEGER,
             transaction_id INTEGER,
@@ -122,10 +114,9 @@ DIM_MODEL_TABLES += [
             lost_profit_ammount NUMERIC(10, 2)
         );
         """
-    }
-]
-DIM_MODEL_SCRIPTS += [
-    f"""
+    
+
+DIM_MODEL_SCRIPTS[REVENUE_FACT] = f"""
 INSERT INTO {DIM_MODEL_SCHEMA_NAME}.{REVENUE_FACT} (
     revenue_id,
     transaction_id,
@@ -289,25 +280,20 @@ join calendar_row_number on date = f.transaction_dttm
 join customer_account_dim cad on cad.b_account_id = f.account_id)) as t
 
 """
-]
 # logger.log(DIM_MODEL_SCRIPTS[len(DIM_MODEL_SCRIPTS)-1])
 
-######################__TRANSACTION_TYPE_TABLE_NAME__#####################
+######################  TRANSACTION_TYPE_DIM  #####################
 
-DIM_MODEL_TABLES += [
-    {
-        "table_name": TRANSACTION_TYPE_DIM,
-        "query": f"""
+DIM_MODEL_TABLES[TRANSACTION_TYPE_DIM] = f"""
             CREATE TABLE {DIM_MODEL_SCHEMA_NAME}.{TRANSACTION_TYPE_DIM} (
                 transaction_type_dim_id INTEGER PRIMARY KEY,
                 transaction_type_nm VARCHAR(255)
             );
         """
-    }
-]
+    
 
-DIM_MODEL_SCRIPTS += [
-    f"""
+
+DIM_MODEL_SCRIPTS[TRANSACTION_TYPE_DIM] = f"""
         INSERT INTO {DIM_MODEL_SCHEMA_NAME}.{TRANSACTION_TYPE_DIM} (
             transaction_type_dim_id,
             transaction_type_nm
@@ -317,15 +303,11 @@ DIM_MODEL_SCRIPTS += [
             transaction_type_nm
         FROM {STAGE_SCHEMA_NAME}.crm_transaction_type;
     """
-]
 
 
 ######################DATE_DIM#####################
 
-DIM_MODEL_TABLES += [
-    {
-        "table_name": DATE_DIM,
-        "query": f"""
+DIM_MODEL_TABLES[DATE_DIM] = f"""
         CREATE TABLE {DIM_MODEL_SCHEMA_NAME}.{DATE_DIM} (
             date_id INTEGER,
             calendar_date DATE,
@@ -335,11 +317,9 @@ DIM_MODEL_TABLES += [
             year INTEGER
         );
         """
-    }
-]
+    
 
-DIM_MODEL_SCRIPTS += [
-    f"""
+DIM_MODEL_SCRIPTS[DATE_DIM] = f"""
     INSERT INTO {DIM_MODEL_SCHEMA_NAME}.{DATE_DIM} (
         date_id,
         calendar_date,
@@ -371,14 +351,10 @@ DIM_MODEL_SCRIPTS += [
         EXTRACT('year' FROM date) AS year
     FROM calendar_row_number;
     """
-]
 
 ######################__ACCOUNTS_TABLE_NAME__#####################
 
-DIM_MODEL_TABLES += [
-    {
-        "table_name": ACCOUNT_DIM,
-        "query": f"""
+DIM_MODEL_TABLES[ACCOUNT_DIM] = f"""
         CREATE TABLE {DIM_MODEL_SCHEMA_NAME}.{ACCOUNT_DIM} (
             account_dim_id INTEGER,
             acccount_create_date DATE,
@@ -386,11 +362,9 @@ DIM_MODEL_TABLES += [
             account_id INTEGER
         );
         """
-    }
-]
+    
 
-DIM_MODEL_SCRIPTS += [
-    f"""
+DIM_MODEL_SCRIPTS[ACCOUNT_DIM] = f"""
     INSERT INTO {DIM_MODEL_SCHEMA_NAME}.{ACCOUNT_DIM} (
         account_dim_id,
         acccount_create_date,
@@ -408,14 +382,10 @@ DIM_MODEL_SCRIPTS += [
     JOIN {STAGE_SCHEMA_NAME}.crm_account_type cat 
         ON ca.account_type_cd = cat.account_type_cd;
     """
-]
 
 ######################__ACTIVATION_DEACTIVATION__#####################
 
-DIM_MODEL_TABLES += [
-    {
-        "table_name": ACTIVATION_DEACTIVATION_FACT,
-        "query": f"""
+DIM_MODEL_TABLES[ACTIVATION_DEACTIVATION_FACT] = f"""
         CREATE TABLE {DIM_MODEL_SCHEMA_NAME}.{ACTIVATION_DEACTIVATION_FACT} (
             activation_deactivation_id INTEGER,
             customer_dim_id INTEGER,
@@ -424,10 +394,8 @@ DIM_MODEL_TABLES += [
             service_request_id INTEGER
         );
         """
-    }
-]
-DIM_MODEL_SCRIPTS += [
-    f"""
+    
+DIM_MODEL_SCRIPTS[ACTIVATION_DEACTIVATION_FACT] = f"""
     INSERT INTO {DIM_MODEL_SCHEMA_NAME}.{ACTIVATION_DEACTIVATION_FACT} (
         activation_deactivation_id,
         customer_dim_id,
@@ -491,14 +459,10 @@ DIM_MODEL_SCRIPTS += [
     JOIN calendar_row_number crn ON crn.date = fdf.create_dttm
     ORDER BY fdf.customer_id, fdf.create_dttm;
     """
-]
 
 ######################__SERVICE_REQUEST_PERIODS_TABLE_NAME__#####################
 
-DIM_MODEL_TABLES += [
-    {
-        "table_name": RETENTION_FACT,
-        "query": f"""
+DIM_MODEL_TABLES[RETENTION_FACT] = f"""
         CREATE TABLE {DIM_MODEL_SCHEMA_NAME}.{RETENTION_FACT} (
             retantion_id INTEGER,
             customer_dim_id INTEGER,
@@ -510,11 +474,9 @@ DIM_MODEL_TABLES += [
             number_months INTEGER
         );
         """
-    }
-]
+    
 
-DIM_MODEL_SCRIPTS += [
-    f"""
+DIM_MODEL_SCRIPTS[RETENTION_FACT] =  f"""
     INSERT INTO {DIM_MODEL_SCHEMA_NAME}.{RETENTION_FACT} (
         retantion_id,
         customer_dim_id,
@@ -593,5 +555,4 @@ join calendar_row_number cr1 on cr1.date = enable_dttm
 join calendar_row_number cr2 on cr2.date = (case when disable_dttm is null then '2099-12-30' else disable_dttm end)
 where flag_activation = 1
 order by customer_dim_id, enable_dttm
-    """
-]
+"""

@@ -25,7 +25,7 @@ class DBHandler:
             self.connection.commit()
         except Exception as e:
             # self.connection.rollback()
-            print(f"Ошибка выполнения SQL: {e}")
+            logger.log(f"Ошибка выполнения SQL: {e}")
             return False
         return True
 
@@ -40,6 +40,10 @@ class DBHandler:
             
     def clear_table(self, schema_name, table_name):
         query = f"TRUNCATE TABLE {schema_name}.{table_name} RESTART IDENTITY CASCADE;"
+        self.execute_query(query)
+
+    def delete_table(self, schema_name, table_name):
+        query = f"DROP TABLE IF EXISTS {schema_name}.{table_name} CASCADE;"
         self.execute_query(query)
 
     def count_lines_amount(self, schema_name, table_name):

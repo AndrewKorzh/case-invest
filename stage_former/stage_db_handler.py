@@ -167,37 +167,9 @@ class DBHandler:
             """
         self.execute_query(q)
     
-
-    def check_data_loss(self, schema_name, table_name):
-        q = f"""
-        WITH actual_data AS (
-            SELECT 
-                COUNT(*) AS loaded_data
-            FROM {schema_name}.{table_name}
-        ),
-        bad_source_loss AS (
-            SELECT 
-                COALESCE(SUM(length), 0) AS bad_source_loss
-            FROM {schema_name}.bad_source
-            WHERE table_name = '{table_name}'
-        ),
-        error_log_loss AS (
-            SELECT 
-                COUNT(*) AS error_log_loss
-            FROM {schema_name}.error_log
-            WHERE table_name = '{table_name}'
-        )
-        SELECT 
-            --'{table_name}' AS table_name,
-            COALESCE(ad.loaded_data, 0) AS loaded_data,
-            COALESCE(bs.bad_source_loss, 0) + COALESCE(el.error_log_loss, 0) AS data_loss
-        FROM actual_data ad
-        LEFT JOIN bad_source_loss bs ON true
-        LEFT JOIN error_log_loss el ON true;
-        """
-        data_loaded, data_los = self.fetch_all(q)[0]
-
-        return (data_loaded, data_los)    
+    def delete_table(self, schema_name, table_name):
+        query = f"DROP TABLE IF EXISTS {schema_name}.{table_name} CASCADE;"
+        self.execute_query(query)
 
     def create_scheme(self, schema_name):
         self.execute_query(f"CREATE SCHEMA IF NOT EXISTS {schema_name};")

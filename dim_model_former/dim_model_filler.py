@@ -18,10 +18,10 @@ class DimModelFiller:
         self.db_handler = DBHandler()
 
     def fill_tables(self):
-        for s in DIM_MODEL_SCRIPTS:
-            logger.log(s[:100])
+        for key, val in DIM_MODEL_SCRIPTS.items():
+            logger.log(f"filling {key}...")
             start_time = time.perf_counter()
-            self.db_handler.execute_query(s)
+            self.db_handler.execute_query(val)
             elapsed_time = time.perf_counter() - start_time
             logger.log(f"Время: {elapsed_time:.2f} секунд")
 
