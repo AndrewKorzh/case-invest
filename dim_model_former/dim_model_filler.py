@@ -19,7 +19,7 @@ class DimModelFiller:
 
     def fill_tables(self):
         for s in DIM_MODEL_SCRIPTS:
-            print(s[:100])
+            logger.log(s[:100])
             start_time = time.perf_counter()
             self.db_handler.execute_query(s)
             elapsed_time = time.perf_counter() - start_time

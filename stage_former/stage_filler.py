@@ -91,7 +91,7 @@ class StageFiller:
 
 
         logger.log("")
-        print(f"\n\n\n{table}")
+        logger.log(f"\n\n\n{table}")
         successed_files_lines = table.loc[table['success'] == True, 'lines_amt'].sum()
         db_table_length = self.db_handler.count_lines_amount(schema_name=STAGE_SCHEMA_NAME, table_name=table_name)
         self.db_handler.insert_row_count_comparison(schema_name=STAGE_SCHEMA_NAME,
@@ -100,8 +100,8 @@ class StageFiller:
                                                     source_length=successed_files_lines,
                                                     db_table_length=db_table_length
                                                     )
-        print(f"db: {db_table_length}")
-        print(f"files: {successed_files_lines}\n\n\n")
+        logger.log(f"db: {db_table_length}")
+        logger.log(f"files: {successed_files_lines}\n\n\n")
 
 
         
@@ -156,8 +156,6 @@ class StageFiller:
                     sign="<",
                     error_table=ERROR_LOG_TABLE_NAME
                 )
-
-        logger.log(f"{table_name} processed")
 
 
 if __name__ == "__main__":

@@ -290,7 +290,7 @@ join customer_account_dim cad on cad.b_account_id = f.account_id)) as t
 
 """
 ]
-print(DIM_MODEL_SCRIPTS[len(DIM_MODEL_SCRIPTS)-1])
+# logger.log(DIM_MODEL_SCRIPTS[len(DIM_MODEL_SCRIPTS)-1])
 
 ######################__TRANSACTION_TYPE_TABLE_NAME__#####################
 
@@ -525,81 +525,73 @@ DIM_MODEL_SCRIPTS += [
         number_days,
         number_months
     )
-    WITH acitvation_deactivation AS (
-        SELECT 
-            sr.service_request_id, 
-            sr.customer_id, 
-            sr.create_dttm, 
-            CASE WHEN srt.service_request_type_nm = 'disable' THEN 0 ELSE 1 END AS flag_activation,
-            srt.service_request_type_nm
-        FROM {STAGE_SCHEMA_NAME}.service_request sr
-        JOIN {STAGE_SCHEMA_NAME}.service_request_type srt 
-            ON srt.service_request_type_cd = sr.service_request_type_cd
-    ),
-    acitvation_deactivation_with_prev AS (
-        SELECT *,
-            LAG(flag_activation) OVER (PARTITION BY customer_id ORDER BY create_dttm) AS prev_flag_activation
-        FROM acitvation_deactivation
-    ),
-    filter_data_duplicate AS (
-        SELECT *
-        FROM acitvation_deactivation_with_prev
-        WHERE flag_activation <> prev_flag_activation OR prev_flag_activation IS NULL
-    ),
-    activation_preiods AS (
-        SELECT
-            customer_id,
-            create_dttm AS enable_dttm,
-            LEAD(create_dttm) OVER (PARTITION BY customer_id ORDER BY create_dttm) AS disable_dttm,
-            service_request_id AS service_request_enable_id, 
-            LEAD(service_request_id) OVER (PARTITION BY customer_id ORDER BY create_dttm) AS service_request_disable_id,
-            service_request_type_nm AS enable_type,
-            LEAD(service_request_type_nm) OVER (PARTITION BY customer_id ORDER BY create_dttm) AS disable_type,
-            flag_activation
-        FROM filter_data_duplicate
-    ),
-    activation_preiods_filter AS (
-        SELECT *
-        FROM activation_preiods
-        WHERE flag_activation = 1
-    ),
-    customer_dim AS (
-        SELECT 
-            ROW_NUMBER() OVER (ORDER BY cc.customer_id) AS customer_dim_id,
-            cc.customer_id AS b_customer_id
-        FROM {STAGE_SCHEMA_NAME}.cab_customer cc
-    ),
-    gen_calendar AS (
-        SELECT 
-            GENERATE_SERIES(
-                DATE '2018-01-01',  -- Начальная дата
-                DATE '2099-12-31',  -- Конечная дата
-                INTERVAL '1 day'    -- Шаг (1 день)
-            ) AS calendar_date
-    ),
-    calendar_row_number AS (
-        SELECT 
-            ROW_NUMBER() OVER (ORDER BY calendar_date) AS date_id, 
-            calendar_date AS date
-        FROM gen_calendar
-    )
-    SELECT 
-        ROW_NUMBER() OVER (ORDER BY enable_dttm) AS retantion_id,
-        cd.customer_dim_id, 
-        cr1.date_id AS enable_dttm_id,
-        cr2.date_id AS disable_dttm_id,
-        apf.service_request_enable_id,
-        apf.service_request_disable_id,
-        EXTRACT(DAY FROM (CASE WHEN apf.disable_dttm IS NULL THEN '2021-04-01' ELSE apf.disable_dttm END - apf.enable_dttm)) AS number_days,
-        EXTRACT(MONTH FROM AGE((CASE WHEN apf.disable_dttm IS NULL THEN '2021-04-01' ELSE apf.disable_dttm END), apf.enable_dttm)) AS number_months
-    FROM activation_preiods_filter apf
-    JOIN customer_dim cd 
-        ON cd.b_customer_id = apf.customer_id
-    JOIN calendar_row_number cr1 
-        ON cr1.date = apf.enable_dttm
-    JOIN calendar_row_number cr2 
-        ON cr2.date = (CASE WHEN apf.disable_dttm IS NULL THEN '2099-12-30' ELSE apf.disable_dttm END)
-    WHERE apf.flag_activation = 1
-    ORDER BY cd.customer_dim_id, apf.enable_dttm;
+    with acitvation_deactivation as (
+	select 
+	sr.service_request_id, 
+	sr.customer_id, 
+	sr.create_dttm, 
+	(case when srt.service_request_type_nm = 'disable' then 0 else 1 end) as flag_activation,
+	srt.service_request_type_nm
+	from {STAGE_SCHEMA_NAME}.service_request sr
+	join {STAGE_SCHEMA_NAME}.service_request_type srt on srt.service_request_type_cd = sr.service_request_type_cd),
+acitvation_deactivation_with_prev as (select *,
+	lag(flag_activation) over (partition by customer_id order by create_dttm) as prev_flag_activation
+	from acitvation_deactivation
+),
+filter_data_duplicate as (
+	select *
+	from acitvation_deactivation_with_prev
+	where flag_activation <> prev_flag_activation or prev_flag_activation is null
+),
+activation_preiods as (select
+	customer_id,
+	create_dttm as enable_dttm,
+	lead(create_dttm) over (partition by customer_id order by create_dttm) as disable_dttm,
+	service_request_id as service_request_enable_id, 
+	lead(service_request_id) over (partition by customer_id order by create_dttm) as service_request_disable_id,
+	service_request_type_nm as enable_type,
+	lead(service_request_type_nm) over (partition  by customer_id order by create_dttm) as disable_type,
+	flag_activation
+	from filter_data_duplicate
+),
+activation_preiods_filter as (select *
+	from activation_preiods
+	where flag_activation = 1
+),
+customer_dim as (
+	select row_number() over (order by cc.customer_id) as customer_dim_id,
+	cc.customer_id as b_customer_id
+	from {STAGE_SCHEMA_NAME}.cab_customer cc 
+),
+gen_calendar as (select 
+    generate_series(
+        DATE '2018-01-01',  -- Начальная дата
+        DATE '2099-12-31',  -- Конечная дата
+        INTERVAL '1 day'    -- Шаг (1 день)
+    ) as calendar_date
+ ),
+ calendar_row_number as (
+	select 
+	row_number() over (order by calendar_date) as date_id, 
+ 	calendar_date as date
+ 	from gen_calendar
+)
+select 
+row_number() over (order by enable_dttm) as retantion_id,
+customer_dim_id, 
+cr1.date_id as enable_dttm_id,
+cr2.date_id as disable_dttm_id,
+service_request_enable_id,
+service_request_disable_id,
+extract(day from (case when disable_dttm is null then '2021-04-01' else disable_dttm end) - enable_dttm) as number_days,
+--- extract(month from age((case when disable_dttm is null then '2021-04-01' else disable_dttm end), enable_dttm)) as number_months
+(EXTRACT(YEAR FROM (CASE WHEN disable_dttm IS NULL THEN '2021-04-01'::date ELSE disable_dttm END)) - EXTRACT(YEAR FROM enable_dttm)) * 12 +
+(EXTRACT(MONTH FROM (CASE WHEN disable_dttm IS NULL THEN '2021-04-01'::date ELSE disable_dttm END)) - EXTRACT(MONTH FROM enable_dttm)) AS number_months
+from activation_preiods_filter
+join customer_dim cd on b_customer_id = customer_id
+join calendar_row_number cr1 on cr1.date = enable_dttm
+join calendar_row_number cr2 on cr2.date = (case when disable_dttm is null then '2099-12-30' else disable_dttm end)
+where flag_activation = 1
+order by customer_dim_id, enable_dttm
     """
 ]

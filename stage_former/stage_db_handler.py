@@ -34,7 +34,7 @@ class DBHandler:
     #         self.connection.commit()
     #     except Exception as e:
     #         # self.connection.rollback()
-    #         print(f"Ошибка выполнения SQL: {e}")
+    #         logger.log(f"Ошибка выполнения SQL: {e}")
     #         return False
     #     return True
     
@@ -79,7 +79,7 @@ class DBHandler:
             return True
         if self.coppy_data_attempt(table_name, schema_name, file_path, columns, has_headers, null_exp =''):
             return True
-        print(f"Ошибка в {table_name}")
+        logger.log(f"Ошибка в {table_name} при загрузке дынных")
         return False
 
 
@@ -139,8 +139,6 @@ class DBHandler:
                 HAVING COUNT(*) > 1
             ) d ON t.{table_primary_key} = d.{table_primary_key};
             """
-
-        print(q)
         self.execute_query(q)
 
 
@@ -167,8 +165,6 @@ class DBHandler:
                 FROM {schema_name}.{table_name} t
                 WHERE t.{column_name} {sign} {value};
             """
-
-        print(q)
         self.execute_query(q)
     
 
@@ -199,7 +195,6 @@ class DBHandler:
         LEFT JOIN bad_source_loss bs ON true
         LEFT JOIN error_log_loss el ON true;
         """
-        print(q)
         data_loaded, data_los = self.fetch_all(q)[0]
 
         return (data_loaded, data_los)    
