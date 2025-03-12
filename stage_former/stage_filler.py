@@ -5,13 +5,13 @@ from pathlib import Path
 import pandas as pd
 import time
 
-from stage_tables_info import TABLES_INFO, SERVICE_TABLES, ERROR_LOG_TABLE_NAME, BAD_SOURCE_TABLE_NAME, DATA_UPDATE_TABLE_NAME, ROW_COUNT_COMPARISON
-from inspections_register import INSPECTIONS_REGISTER
-from stage_db_handler import DBHandler
+from .stage_tables_info import TABLES_INFO, SERVICE_TABLES, ERROR_LOG_TABLE_NAME, BAD_SOURCE_TABLE_NAME, DATA_UPDATE_TABLE_NAME, ROW_COUNT_COMPARISON
+from .inspections_register import INSPECTIONS_REGISTER
+from .stage_db_handler import DBHandler
 
 sys.path.append(str(Path(__file__).parent.parent))
 from config import ARCHIVE_PATH, STAGE_SCHEMA_NAME, DIM_MODEL_SCHEMA_NAME
-from logger import logger
+from logger import logger, LogLevel
 
 
 def read_headers(file_path) -> list:
@@ -46,13 +46,13 @@ class StageFiller:
         self.db_handler = DBHandler()
 
     def fill_all(self, clean_before_insert = True):
-        logger.log("Filling Tables\n")
+        logger.log("Filling Tables\n", level=LogLevel.INFO)
         if clean_before_insert:
             self.db_handler.clear_table(schema_name=STAGE_SCHEMA_NAME,table_name=BAD_SOURCE_TABLE_NAME)
             self.db_handler.clear_table(schema_name=STAGE_SCHEMA_NAME,table_name=ERROR_LOG_TABLE_NAME)
             self.db_handler.clear_table(schema_name=STAGE_SCHEMA_NAME,table_name=ROW_COUNT_COMPARISON)
         for table_info in TABLES_INFO:
-            logger.log(f"{table_info["table_name"]}...")
+            logger.log(f"{table_info["table_name"]}...", level=LogLevel.INFO)
             self.fill_table(table_info, clean_before_insert=clean_before_insert)
 
     def fill_table(self, table_info:dict, clean_before_insert = True):
@@ -72,7 +72,7 @@ class StageFiller:
         for index, row in table.iterrows():
             file_success = row["success"]
             if file_success == True:
-                logger.log(f"{table_name} - {index+1}/{table.shape[0]}", r033=True)
+                logger.log(f"{table_name} - {index+1}/{table.shape[0]}", r033=True, level=LogLevel.INFO)
                 file_success = self.db_handler.copy_data(
                     table_name=table_name,
                     schema_name=STAGE_SCHEMA_NAME,
@@ -90,8 +90,8 @@ class StageFiller:
                 table.at[index, 'success'] = False
 
 
-        logger.log("")
-        logger.log(f"\n\n\n{table}")
+        logger.log("", level=LogLevel.INFO)
+        logger.log(f"\n\n\n{table}", level=LogLevel.DEBUG)
         successed_files_lines = table.loc[table['success'] == True, 'lines_amt'].sum()
         db_table_length = self.db_handler.count_lines_amount(schema_name=STAGE_SCHEMA_NAME, table_name=table_name)
         self.db_handler.insert_row_count_comparison(schema_name=STAGE_SCHEMA_NAME,
@@ -100,23 +100,27 @@ class StageFiller:
                                                     source_length=successed_files_lines,
                                                     db_table_length=db_table_length
                                                     )
-        logger.log(f"db: {db_table_length}")
-        logger.log(f"files: {successed_files_lines}\n\n\n")
+        logger.log(f"db: {db_table_length}", level=LogLevel.DEBUG)
+        logger.log(f"files: {successed_files_lines}\n\n\n", level=LogLevel.DEBUG)
 
 
         
 
-    def data_quality_check(self):
+    def data_quality_tables_creation(self, clear = True):
         # Очистка таблиц некоторых (чтобы не скапливалось ничего)
         # Заполнение данными 
         # Расчёт 
         # Отедельно расчёт показателей
+
+        if clear:
+            for table in SERVICE_TABLES:
+                self.db_handler.clear_table(schema_name=STAGE_SCHEMA_NAME,table_name=table["table_name"])
         for table_inspections in INSPECTIONS_REGISTER:
-            logger.log(f"process {table_inspections["table_name"]}...")
+            logger.log(f"process {table_inspections["table_name"]}...", level=LogLevel.INFO)
             self.process_table(table_inspections)
 
         for table in SERVICE_TABLES:
-            print(f"{table["table_name"]} coppy")
+            logger.log(f"{table["table_name"]} coppy", level=LogLevel.INFO)
             self.db_handler.copy_table(schema_from=STAGE_SCHEMA_NAME, schema_to=DIM_MODEL_SCHEMA_NAME, table_name=table["table_name"])
             
 
@@ -150,7 +154,6 @@ class StageFiller:
                     sign=">",
                     error_table=ERROR_LOG_TABLE_NAME
                 )
-                # 
             if inspection_type == "BELOW_MINIMUM_THRESHOLD":
                 self.db_handler.process_bound_value(
                     schema_name=STAGE_SCHEMA_NAME,
@@ -162,27 +165,23 @@ class StageFiller:
                     sign="<",
                     error_table=ERROR_LOG_TABLE_NAME
                 )
+    
+    def run_fill_all(self):
+        start_time = time.perf_counter()
+        self.fill_all()
+        elapsed_time = time.perf_counter() - start_time
+        logger.log(f"Время, ушедшее на заполнение таблиц: {elapsed_time:.2f} секунд", level=LogLevel.INFO)
+
+    def run_data_quality_tables_creation(self, clear = True):
+        start_time = time.perf_counter()
+        self.data_quality_tables_creation(clear = clear)
+        elapsed_time = time.perf_counter() - start_time
+        logger.log(f"Время, ушедшее на обработку таблиц: {elapsed_time:.2f} секунд", level=LogLevel.INFO)
 
 
 if __name__ == "__main__":
     sf = StageFiller()
-
-    start_time = time.perf_counter()
-    sf.fill_all()
-    elapsed_time = time.perf_counter() - start_time
-    logger.log(f"Время, ушедшее на заполнение таблиц: {elapsed_time:.2f} секунд")
-
-    # Обработка
-    start_time = time.perf_counter()
-    sf.data_quality_check()
-    elapsed_time = time.perf_counter() - start_time
-    logger.log(f"Время, ушедшее на обработку таблиц: {elapsed_time:.2f} секунд")
-
-
-    # # Проверка данных
-    # start_time = time.perf_counter()
-    # sf.check_data_loss()
-    # elapsed_time = time.perf_counter() - start_time
-    # logger.log(f"Время, ушедшее на проверку данных: {elapsed_time:.2f} секунд")
+    sf.run_fill_all()
+    sf.run_data_quality_tables_creation()
 
 

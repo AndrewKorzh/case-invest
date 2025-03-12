@@ -5,7 +5,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 from config import DB_CONFIG
 
-from logger import logger
+from logger import logger, LogLevel
 
 
 class DBHandler:
@@ -79,7 +79,7 @@ class DBHandler:
             return True
         if self.coppy_data_attempt(table_name, schema_name, file_path, columns, has_headers, null_exp =''):
             return True
-        logger.log(f"Ошибка в {table_name} при загрузке дынных")
+        logger.log(f"\nОшибка в {table_name} при загрузке дынных\n", level=LogLevel.ERROR)
         return False
 
 
@@ -173,12 +173,12 @@ class DBHandler:
 
     def create_scheme(self, schema_name):
         self.execute_query(f"CREATE SCHEMA IF NOT EXISTS {schema_name};")
-        logger.log(f"{schema_name} created")
+        logger.log(f"{schema_name} created", level=LogLevel.INFO)
 
 
     def drop_scheme(self, schema_name):
         self.execute_query(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE;")
-        logger.log(f"{schema_name} droped")
+        logger.log(f"{schema_name} droped", level=LogLevel.INFO)
         
     def copy_table(self, schema_from, schema_to, table_name):
         drop_table_query = f"""
@@ -208,9 +208,9 @@ class DBHandler:
 
     def __del__(self):
         self.close()
-        logger.log("connection closed")
+        logger.log("connection closed", level=LogLevel.INFO)
     
 
 if __name__ == "__main__":
     dh = DBHandler()
-    logger.log(dh.fetch_all(f"select* from test_tables2.product_type"))
+    logger.log(dh.fetch_all(f"select* from test_tables2.product_type"), level=LogLevel.INFO)

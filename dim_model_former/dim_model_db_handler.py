@@ -5,7 +5,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 from config import DB_CONFIG
 
-from logger import logger
+from logger import logger, LogLevel
 
 
 class DBHandler:
@@ -25,7 +25,7 @@ class DBHandler:
             self.connection.commit()
         except Exception as e:
             # self.connection.rollback()
-            logger.log(f"Ошибка выполнения SQL: {e}")
+            logger.log(f"Ошибка выполнения SQL: {e}", level=LogLevel.ERROR)
             return False
         return True
 
@@ -52,16 +52,23 @@ class DBHandler:
         if result:
             return result[0][0]
         return 0
+    
+    def add_last_data_update_date(self, schema_name, table_name):
+        q = f"""
+            INSERT INTO {schema_name}.{table_name} (success, date)
+            VALUES (True, CURRENT_DATE);
+            """
+        self.execute_query(q)
 
 
     def create_scheme(self, schema_name):
         self.execute_query(f"CREATE SCHEMA IF NOT EXISTS {schema_name};")
-        logger.log(f"{schema_name} created")
+        logger.log(f"{schema_name} created", level=LogLevel.INFO)
 
 
     def drop_scheme(self, schema_name):
         self.execute_query(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE;")
-        logger.log(f"{schema_name} droped")
+        logger.log(f"{schema_name} droped", level=LogLevel.INFO)
         
 
     def close(self):
@@ -72,11 +79,11 @@ class DBHandler:
 
     def __del__(self):
         self.close()
-        logger.log("connection closed")
+        logger.log("connection closed", level=LogLevel.INFO)
     
 
 if __name__ == "__main__":
     dh = DBHandler()
-    logger.log(dh.fetch_all(f"select* from test_tables2.product_type"))
+    logger.log(dh.fetch_all(f"select* from test_tables2.product_type"), level=LogLevel.DEBUG)
 
 

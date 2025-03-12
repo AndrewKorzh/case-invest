@@ -10,6 +10,7 @@ DATE_DIM = "date_dim"
 ACCOUNT_DIM = "account_dim"
 ACTIVATION_DEACTIVATION_FACT = "activation_deactivation_fact"
 RETENTION_FACT = "retention_fact"
+LAST_DATA_UPDATE_DATE = "last_data_update_date"
 
 DIM_MODEL_TABLES = {}
 DIM_MODEL_SCRIPTS = {}
@@ -560,3 +561,34 @@ order by customer_dim_id, enable_dttm
 """
 
 
+LAST_DATA_UPDATE_DATE_QUERY = f"""
+DO $$
+BEGIN
+    -- Проверяем, существует ли таблица с правильной структурой
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = '{DIM_MODEL_SCHEMA_NAME}'
+          AND table_name = '{LAST_DATA_UPDATE_DATE}'
+          AND column_name IN ('id', 'success', 'date')
+
+    ) THEN
+        -- Если структура верна, ничего не делаем
+        RETURN;
+    ELSE
+        -- Иначе удаляем таблицу и создаем заново
+        DROP TABLE IF EXISTS {DIM_MODEL_SCHEMA_NAME}.{LAST_DATA_UPDATE_DATE};
+        
+        CREATE TABLE {DIM_MODEL_SCHEMA_NAME}.{LAST_DATA_UPDATE_DATE} (
+            id SERIAL PRIMARY KEY,
+            success BOOL,
+            date DATE DEFAULT CURRENT_DATE
+        );
+    END IF;
+END $$;
+"""
+
+
+        #   AND (column_name = 'id' AND data_type = 'integer' AND character_maximum_length IS NULL)
+        #   AND (column_name = 'success' AND data_type = 'boolean')
+        #   AND (column_name = 'date' AND data_type = 'date')
