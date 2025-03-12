@@ -78,3 +78,5 @@ class DBHandler:
 if __name__ == "__main__":
     dh = DBHandler()
     logger.log(dh.fetch_all(f"select* from test_tables2.product_type"))
+
+

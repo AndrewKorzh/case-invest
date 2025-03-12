@@ -180,6 +180,25 @@ class DBHandler:
         self.execute_query(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE;")
         logger.log(f"{schema_name} droped")
         
+    def copy_table(self, schema_from, schema_to, table_name):
+        drop_table_query = f"""
+        DROP TABLE IF EXISTS {schema_to}.{table_name};
+        """
+        
+        create_table_query = f"""
+        CREATE TABLE {schema_to}.{table_name} (
+            LIKE {schema_from}.{table_name} INCLUDING ALL
+        );
+        """
+        
+        insert_data_query = f"""
+        INSERT INTO {schema_to}.{table_name}
+        SELECT * FROM {schema_from}.{table_name};
+        """
+        self.execute_query(drop_table_query)
+        self.execute_query(create_table_query)
+        self.execute_query(insert_data_query)
+
 
     def close(self):
         if self.cursor:

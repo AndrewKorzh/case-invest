@@ -15,6 +15,8 @@ DIM_MODEL_TABLES = {}
 DIM_MODEL_SCRIPTS = {}
 
 
+
+
 ###################### CUSTOMERS_DIM #####################
 
 DIM_MODEL_TABLES[CUSTOMERS_DIM] = f"""
@@ -305,7 +307,7 @@ DIM_MODEL_SCRIPTS[TRANSACTION_TYPE_DIM] = f"""
     """
 
 
-######################DATE_DIM#####################
+###################### DATE_DIM #####################
 
 DIM_MODEL_TABLES[DATE_DIM] = f"""
         CREATE TABLE {DIM_MODEL_SCHEMA_NAME}.{DATE_DIM} (
@@ -556,3 +558,5 @@ join calendar_row_number cr2 on cr2.date = (case when disable_dttm is null then 
 where flag_activation = 1
 order by customer_dim_id, enable_dttm
 """
+
+

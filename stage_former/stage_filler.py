@@ -5,12 +5,12 @@ from pathlib import Path
 import pandas as pd
 import time
 
-from stage_tables_info import TABLES_INFO, ERROR_LOG_TABLE_NAME, BAD_SOURCE_TABLE_NAME, DATA_UPDATE_TABLE_NAME, ROW_COUNT_COMPARISON
+from stage_tables_info import TABLES_INFO, SERVICE_TABLES, ERROR_LOG_TABLE_NAME, BAD_SOURCE_TABLE_NAME, DATA_UPDATE_TABLE_NAME, ROW_COUNT_COMPARISON
 from inspections_register import INSPECTIONS_REGISTER
 from stage_db_handler import DBHandler
 
 sys.path.append(str(Path(__file__).parent.parent))
-from config import ARCHIVE_PATH, STAGE_SCHEMA_NAME
+from config import ARCHIVE_PATH, STAGE_SCHEMA_NAME, DIM_MODEL_SCHEMA_NAME
 from logger import logger
 
 
@@ -114,6 +114,12 @@ class StageFiller:
         for table_inspections in INSPECTIONS_REGISTER:
             logger.log(f"process {table_inspections["table_name"]}...")
             self.process_table(table_inspections)
+
+        for table in SERVICE_TABLES:
+            print(f"{table["table_name"]} coppy")
+            self.db_handler.copy_table(schema_from=STAGE_SCHEMA_NAME, schema_to=DIM_MODEL_SCHEMA_NAME, table_name=table["table_name"])
+            
+
 
     # Применение проверки ckeck_applying
     def process_table(self, table_inspections:dict):
