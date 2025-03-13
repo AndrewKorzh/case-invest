@@ -1,4 +1,4 @@
-from logger import logger
+from logger import logger, LogLevel
 
 from stage_former.stage_former import StageFormer
 from stage_former.stage_filler import StageFiller
@@ -13,12 +13,12 @@ def main():
 
     stage_filler.run_fill_all()
 
-    check_data = stage_filler.run_data_quality_tables_creation() # Отдельно не запускается будет только error log
+    stage_filler.run_data_quality_tables_creation() # Отдельно не запускается будет только error log
 
-    stage_filler.data_quality_check()
+    check_data = stage_filler.data_quality_check()
 
     if not check_data:
-        print(f"check_data - Fasle")
+        logger.log(f"data_quality_check failed", level=LogLevel.CRITICAL)
         return
 
     dim_model_former = DimModelFormer()
@@ -26,11 +26,6 @@ def main():
 
     dim_model_filler = DimModelFiller()
     dim_model_filler.run()
-
-
-
-    # stage_filler = StageFiller()
-    # stage_filler.data_quality_check() # Отдельно не запускается будет только error log
 
 if __name__ == "__main__":
     main()

@@ -5,15 +5,19 @@ from pathlib import Path
 import pandas as pd
 import time
 
-from .stage_tables_info import TABLES_INFO, SERVICE_TABLES, ERROR_LOG_TABLE_NAME, BAD_SOURCE_TABLE_NAME, DATA_UPDATE_TABLE_NAME, ROW_COUNT_COMPARISON, FATAL_ERROR_TABLE_NAME
+from .stage_tables_info import (TABLES_INFO, SERVICE_TABLES,
+                                ERROR_LOG_TABLE_NAME,
+                                BAD_SOURCE_TABLE_NAME, 
+                                ROW_COUNT_COMPARISON,
+                                FATAL_ERROR_TABLE_NAME)
+
 from .inspections_register import INSPECTIONS_REGISTER
 from .stage_db_handler import DBHandler
 
 sys.path.append(str(Path(__file__).parent.parent))
-from config import ARCHIVE_PATH, STAGE_SCHEMA_NAME, DIM_MODEL_SCHEMA_NAME
+from config import ARCHIVE_PATH, STAGE_SCHEMA_NAME, DIM_MODEL_SCHEMA_NAME, MAX_TABLE_ERROR
 from logger import logger, LogLevel
 
-import json
 
 
 def read_headers(file_path) -> list:
@@ -114,9 +118,7 @@ class StageFiller:
             logger.log(f"process {table_inspections["table_name"]}...", level=LogLevel.INFO)
             self.process_table(table_inspections)
 
-        for table in SERVICE_TABLES:
-            logger.log(f"{table["table_name"]} coppy", level=LogLevel.INFO)
-            self.db_handler.copy_table(schema_from=STAGE_SCHEMA_NAME, schema_to=DIM_MODEL_SCHEMA_NAME, table_name=table["table_name"])
+
             
 
 
@@ -176,10 +178,6 @@ class StageFiller:
 
 
     def data_quality_check(self):
-        # bad source - должен быть пустой
-        # row_count_comparison - != 0 + расхождение не более заданного для каждой таблицы
-        # Error Log - количество ошибок относительно размера таблице - не больше заданного
-
         result = True
 
         count_bad_source = self.db_handler.bad_source_count(schema_name=STAGE_SCHEMA_NAME,bad_source_table_name=BAD_SOURCE_TABLE_NAME)
@@ -188,7 +186,6 @@ class StageFiller:
                                             fatal_error_table_name=FATAL_ERROR_TABLE_NAME,
                                             message=f"bad_source length should be 0 but was {count_bad_source}")
             result = False
-        print(f"count_bad_source: {count_bad_source}")
 
         table_data_compare_map = {}
         row_comp_table = self.db_handler.row_count_comparison(schema_name=STAGE_SCHEMA_NAME, row_count_comparison_table_name=ROW_COUNT_COMPARISON)
@@ -205,16 +202,16 @@ class StageFiller:
             error_amount = info.get("errors", 0)
 
             table_error = (table_length-error_amount)/source_length
-            print(f"{table_name}: {table_error}")
-
-            if table_error > 1 or table_error < 0.5:
+            if table_error > 1 or table_error < MAX_TABLE_ERROR:
                 result = False
                 self.db_handler.add_fatal_error(schema_name=STAGE_SCHEMA_NAME,
                                                 fatal_error_table_name=FATAL_ERROR_TABLE_NAME,
                                                 message=f"{table_name}: table_error: {table_error}")
-
+                
+        for table in SERVICE_TABLES:
+            logger.log(f"{table["table_name"]} coppy", level=LogLevel.INFO)
+            self.db_handler.copy_table(schema_from=STAGE_SCHEMA_NAME, schema_to=DIM_MODEL_SCHEMA_NAME, table_name=table["table_name"])
         return result
-        # print(json.dumps(table_data_compare_map, indent=4))
 
 
 if __name__ == "__main__":

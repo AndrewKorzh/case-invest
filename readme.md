@@ -1,7 +1,8 @@
 # Case
 
 Файл в корневой папке проекта
-`config.py:`
+
+# ------------------`config.py`------------------
 
 `db_config` = {   
     "dbname": "xxx",   
@@ -13,10 +14,14 @@
 
 `ARCHIVE_PATH` = "xxx"
 
-`STAGE_SCHEMA_NAME` = "xxx"
+`STAGE_SCHEMA_NAME` = "xxx"  
+`DIM_MODEL_SCHEMA_NAME` = "xxx"
 
-`stage_filler.py` - заполнение данными
-`stage_former.py` - создание всех таблиц
+`MAX_TABLE_ERROR` - в пределах [0..1]
+
+# -------------------------------------------------
+
+`main.py` - Запуск всех скриптов последовательно
 ---
 Запуск из корневой папки проекта 
 
@@ -59,3 +64,4 @@ python -m stage_former.stage_former
 
 # Примечание
 - Подразумевается, что в конце фалйла в конце стоит \n даже на последней строке
+- table_error = (table_length-error_amount)/source_length
