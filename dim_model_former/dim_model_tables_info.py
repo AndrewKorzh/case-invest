@@ -283,7 +283,6 @@ join calendar_row_number on date = f.transaction_dttm
 join customer_account_dim cad on cad.b_account_id = f.account_id)) as t
 
 """
-# logger.log(DIM_MODEL_SCRIPTS[len(DIM_MODEL_SCRIPTS)-1])
 
 ######################  TRANSACTION_TYPE_DIM  #####################
 
@@ -587,8 +586,3 @@ BEGIN
     END IF;
 END $$;
 """
-
-
-        #   AND (column_name = 'id' AND data_type = 'integer' AND character_maximum_length IS NULL)
-        #   AND (column_name = 'success' AND data_type = 'boolean')
-        #   AND (column_name = 'date' AND data_type = 'date')

@@ -1,5 +1,4 @@
 INSPECTIONS_REGISTER = [
-    # Норм проверки
     {
         "table_name": "service_request",
         "primary_key": "service_request_id",

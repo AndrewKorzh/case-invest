@@ -20,12 +20,9 @@ class DBHandler:
         self.cursor = self.connection.cursor()
 
     def execute_query(self, query, params=None):
-
         self.cursor.execute(query, params)
         self.connection.commit()
-
         return True
-
 
 
     # def execute_query(self, query, params=None):

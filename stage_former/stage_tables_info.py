@@ -189,16 +189,3 @@ SERVICE_TABLES = [
     },
 
 ]
-
-
-    # {
-    # "table_name":DATA_UPDATE_TABLE_NAME,
-    # "query": f"""
-    #         CREATE TABLE IF NOT EXISTS {STAGE_SCHEMA_NAME}.{DATA_UPDATE_TABLE_NAME} (
-    #             id SERIAL PRIMARY KEY,
-    #             success boolean,
-    #             message TEXT NOT NULL,
-    #             created_at TIMESTAMP DEFAULT NOW()
-    #         );
-    #     """
-    # },

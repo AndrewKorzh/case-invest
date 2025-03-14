@@ -24,7 +24,6 @@ class DBHandler:
             self.cursor.execute(query, params)
             self.connection.commit()
         except Exception as e:
-            # self.connection.rollback()
             logger.log(f"\nОшибка выполнения SQL: {e}\n", level=LogLevel.ERROR)
             return False
         return True
